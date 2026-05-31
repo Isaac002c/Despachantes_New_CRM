@@ -180,27 +180,17 @@ export default function Sidebar({ currentModule, currentTab, onNavigate, collaps
 
   return (
     <aside className={classes}>
-      {/* Logo */}
+      {/* Logo CR Multas */}
       <div className="sidebar-logo">
-        <img src="/logoChronosTech.png" alt="ChronosTek" className="sidebar-logo-img" />
+        <CRLogoMark />
         {!collapsed && (
           <div className="sidebar-brand">
-            <span className="sidebar-brand-name">ChronosTek</span>
-            <span className="sidebar-brand-sub">{config.label}</span>
+            <span className="sidebar-brand-name">CR Multas</span>
+            <span className="sidebar-brand-sub">Assessoria de Trânsito</span>
           </div>
         )}
       </div>
 
-      {/* CR Recursos client brand */}
-      {!collapsed && (
-        <div className="sidebar-client-brand">
-          <CRLogoMark />
-          <div className="cr-brand-text">
-            <span className="cr-brand-name">CR Recursos</span>
-            <span className="cr-brand-sub">Assessoria de Trânsito</span>
-          </div>
-        </div>
-      )}
       {collapsed && <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', flexShrink: 0 }} />}
 
       {/* Module Switcher */}
@@ -267,8 +257,8 @@ export default function Sidebar({ currentModule, currentTab, onNavigate, collaps
             <span className="sidebar-footer-label">
               <Icons.Mail /> Suporte
             </span>
-            <a href="mailto:contato@chronostek.com.br" className="sidebar-footer-email">
-              contato@chronostek.com.br
+            <a href="mailto:contato@crmultas.com.br" className="sidebar-footer-email">
+              contato@crmultas.com.br
             </a>
           </div>
         )}

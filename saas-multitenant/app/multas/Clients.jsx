@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { getClients, createClient, updateClient, deleteClient, searchClients } from '../lib/clientsAPI';
 
@@ -22,10 +22,49 @@ const EMPTY_FORM = {
   notes: '', status: 'negociacao',
 };
 
-const formatCPF = (cpf) =>
-  cpf ? cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/g, '$1.$2.$3-$4') : '—';
+// Formata CPF para exibição na tabela: 000.000.000-00
+const formatCPF = (cpf) => {
+  if (!cpf) return '—';
+  const digits = cpf.replace(/\D/g, '');
+  if (digits.length !== 11) return cpf;
+  return digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+};
+
+// Aplica máscara CPF durante digitação
+const maskCPF = (value) => {
+  const d = value.replace(/\D/g, '').slice(0, 11);
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+};
+
+// Aplica máscara de telefone durante digitação
+const maskPhone = (value) => {
+  const d = value.replace(/\D/g, '').slice(0, 11);
+  if (d.length <= 2) return d.length ? `(${d}` : '';
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+};
 
 const formatPhone = (phone) => phone || '—';
+
+// Valida CPF (dígitos verificadores)
+const isValidCPF = (cpf) => {
+  const d = cpf.replace(/\D/g, '');
+  if (d.length !== 11 || /^(\d)\1+$/.test(d)) return false;
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += parseInt(d[i]) * (10 - i);
+  let r = (sum * 10) % 11;
+  if (r === 10 || r === 11) r = 0;
+  if (r !== parseInt(d[9])) return false;
+  sum = 0;
+  for (let i = 0; i < 10; i++) sum += parseInt(d[i]) * (11 - i);
+  r = (sum * 10) % 11;
+  if (r === 10 || r === 11) r = 0;
+  return r === parseInt(d[10]);
+};
 
 export default function MultasClients() {
   const router = useRouter();
@@ -38,6 +77,8 @@ export default function MultasClients() {
   const [filterStatus, setFilterStatus] = useState('');
   const [formData, setFormData]       = useState(EMPTY_FORM);
   const [saving, setSaving]           = useState(false);
+  const [formError, setFormError]     = useState(null);
+  const searchDebounce                = useRef(null);
 
   useEffect(() => { loadClients(); }, []);
 
@@ -54,18 +95,37 @@ export default function MultasClients() {
     }
   };
 
-  const handleSearch = async (e) => {
+  const handleSearch = (e) => {
     const term = e.target.value;
     setSearchTerm(term);
-    if (term.length >= 2) {
-      try { setClients(await searchClients(term)); } catch {}
-    } else if (term.length === 0) {
-      loadClients();
+    clearTimeout(searchDebounce.current);
+    searchDebounce.current = setTimeout(async () => {
+      if (term.length >= 2) {
+        try { setClients(await searchClients(term)); } catch {}
+      } else if (term.length === 0) {
+        loadClients();
+      }
+    }, 300);
+  };
+
+  const validateForm = () => {
+    if (!formData.name.trim()) return 'Nome é obrigatório.';
+    if (formData.cpf) {
+      const digits = formData.cpf.replace(/\D/g, '');
+      if (digits.length > 0 && digits.length !== 11) return 'CPF deve ter 11 dígitos.';
+      if (digits.length === 11 && !isValidCPF(formData.cpf)) return 'CPF inválido.';
     }
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      return 'E-mail inválido.';
+    }
+    return null;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFormError(null);
+    const validationError = validateForm();
+    if (validationError) { setFormError(validationError); return; }
     try {
       setSaving(true);
       if (editingClient) {
@@ -78,10 +138,17 @@ export default function MultasClients() {
       setFormData(EMPTY_FORM);
       loadClients();
     } catch (err) {
-      setError(err.message);
+      setFormError(err.message);
     } finally {
       setSaving(false);
     }
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setEditingClient(null);
+    setFormData(EMPTY_FORM);
+    setFormError(null);
   };
 
   const openEdit = (e, client) => {
@@ -119,7 +186,12 @@ export default function MultasClients() {
     }
   };
 
-  const set = (field) => (e) => setFormData(prev => ({ ...prev, [field]: e.target.value }));
+  const set = (field) => (e) => {
+    let value = e.target.value;
+    if (field === 'cpf')   value = maskCPF(value);
+    if (field === 'phone') value = maskPhone(value);
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
 
   // Filtragem local por status
   const displayed = clients.filter(c => !filterStatus || c.status === filterStatus);
@@ -277,7 +349,7 @@ export default function MultasClients() {
 
       {/* Modal */}
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+        <div className="modal-overlay" onClick={closeModal}>
           <div className="modal-content" style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <div>
@@ -288,8 +360,14 @@ export default function MultasClients() {
                   {editingClient ? 'Atualize os dados do cliente' : 'Preencha os dados do novo cliente'}
                 </p>
               </div>
-              <button onClick={() => setShowModal(false)} className="btn-close">✕</button>
+              <button type="button" onClick={closeModal} className="btn-close">✕</button>
             </div>
+
+            {formError && (
+              <div className="error-message" style={{ margin: '0 0 12px', fontSize: 13 }}>
+                {formError}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="modal-form">
               {/* Nome */}
@@ -394,7 +472,7 @@ export default function MultasClients() {
               </div>
 
               <div className="form-actions">
-                <button type="button" onClick={() => setShowModal(false)} className="btn-secondary">
+                <button type="button" onClick={closeModal} className="btn-secondary">
                   Cancelar
                 </button>
                 <button type="submit" className="btn-primary" disabled={saving}>

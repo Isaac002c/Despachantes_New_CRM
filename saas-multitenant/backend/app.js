@@ -33,10 +33,13 @@ const app = express();
 // CORS
 // ============================================
 
+// Em produção, defina FRONTEND_URL no .env com o domínio real
+const FRONTEND_URL = process.env.FRONTEND_URL || '';
+
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
-  'https://crm.chronostek.com.br'
+  ...(FRONTEND_URL ? [FRONTEND_URL] : []),
 ];
 
 const corsOptions = {
@@ -57,6 +60,8 @@ app.options('*', cors(corsOptions));
 // SECURITY HEADERS
 // ============================================
 
+const connectSrcDirectives = ["'self'", ...(FRONTEND_URL ? [FRONTEND_URL] : [])];
+
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -64,7 +69,7 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", 'data:', 'https:'],
-      connectSrc: ["'self'", 'https://crm.chronostek.com.br'],
+      connectSrc: connectSrcDirectives,
       frameAncestors: ["'none'"]
     }
   },
@@ -135,6 +140,19 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/multas-leads', multasLeadsRoutes);
 
 // ============================================
+// HEALTH CHECK (sem autenticação — para uptime monitors)
+// ============================================
+
+app.get('/health', async (req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.json({ status: 'ok', db: 'connected', uptime: process.uptime() });
+  } catch {
+    res.status(503).json({ status: 'error', db: 'disconnected' });
+  }
+});
+
+// ============================================
 // 404
 // ============================================
 
@@ -160,15 +178,27 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
+// Handlers de crash para evitar queda silenciosa em produção
+process.on('uncaughtException', (err) => {
+  console.error('[CRASH] uncaughtException:', err.message, err.stack);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[CRASH] unhandledRejection:', reason);
+  process.exit(1);
+});
+
 (async () => {
   try {
     await pool.query('SELECT NOW()');
     console.log(' Conectado ao Banco de Dados');
   } catch (err) {
     console.error(' Erro ao conectar no banco:', err.message);
+    process.exit(1);
   }
 
   app.listen(PORT, () => {
-    console.log(` CRM rodando na porta ${PORT}`);
+    console.log(` CR Multas CRM rodando na porta ${PORT} (${process.env.NODE_ENV || 'development'})`);
   });
 })();

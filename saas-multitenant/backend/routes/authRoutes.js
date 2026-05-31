@@ -94,25 +94,38 @@ router.post('/login',
 
       client = await pool.connect();
 
+      // Busca todos os usuários com esse e-mail (multi-tenant: pode haver mais de um)
       const result = await client.query(
         `SELECT u.id, u.name, u.email, u.password_hash, u.tenant_id, u.role,
                 t.name as tenant_name
          FROM users u
          JOIN tenants t ON u.tenant_id = t.id
-         WHERE u.email = $1`,
+         WHERE u.email = $1
+         ORDER BY u.created_at ASC`,
         [email]
       );
 
-      const user = result.rows[0];
+      if (result.rows.length === 0) {
+        return sendJson(res, 401, { success: false, message: 'Credenciais inválidas' });
+      }
+
+      // Valida a senha contra cada usuário encontrado (suporta colisão de e-mail entre tenants)
+      let user = null;
+      for (const candidate of result.rows) {
+        const match = await bcryptjs.compare(password, candidate.password_hash);
+        if (match) {
+          user = candidate;
+          break;
+        }
+      }
 
       if (!user) {
         return sendJson(res, 401, { success: false, message: 'Credenciais inválidas' });
       }
 
-      const isValidPassword = await bcryptjs.compare(password, user.password_hash);
-
-      if (!isValidPassword) {
-        return sendJson(res, 401, { success: false, message: 'Credenciais inválidas' });
+      // Aviso operacional: mesmo e-mail em múltiplos tenants
+      if (result.rows.length > 1) {
+        console.warn(`[LOGIN] E-mail "${email}" existe em ${result.rows.length} tenants. Logando no primeiro com senha válida.`);
       }
 
       const token = jwt.sign(

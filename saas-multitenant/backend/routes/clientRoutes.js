@@ -69,13 +69,23 @@ router.post('/', async (req, res) => {
     const { name, birth_date, cpf, cnh, first_cnh, phone, email, address, notes, status } = req.body;
     const tenantId = req.tenantId;
 
-    if (!name) {
+    if (!name || !name.trim()) {
       return res.status(400).json({ success: false, error: 'Nome é obrigatório' });
     }
 
-    // Verificar se CPF já existe
-    if (cpf) {
-      const existingClient = await clientModel.getClientByCPF(cpf, tenantId);
+    // Normaliza CPF removendo máscara antes de salvar
+    const cpfNormalized = cpf ? cpf.replace(/\D/g, '') : null;
+    if (cpfNormalized && cpfNormalized.length !== 11) {
+      return res.status(400).json({ success: false, error: 'CPF deve ter 11 dígitos' });
+    }
+
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ success: false, error: 'E-mail inválido' });
+    }
+
+    // Verificar se CPF já existe no tenant
+    if (cpfNormalized) {
+      const existingClient = await clientModel.getClientByCPF(cpfNormalized, tenantId);
       if (existingClient) {
         return res.status(400).json({ success: false, error: 'CPF já cadastrado' });
       }
@@ -83,7 +93,8 @@ router.post('/', async (req, res) => {
 
     const client = await clientModel.createClient({
       tenant_id: tenantId,
-      name, birth_date, cpf, cnh, first_cnh, phone, email, address, notes,
+      name: name.trim(), birth_date, cpf: cpfNormalized, cnh, first_cnh,
+      phone, email, address, notes,
       status: status || 'negociacao',
     });
 
@@ -101,21 +112,36 @@ router.put('/:id', async (req, res) => {
     const { name, birth_date, cpf, cnh, first_cnh, phone, email, address, notes, status } = req.body;
     const tenantId = req.tenantId;
 
+    if (!name || !name.trim()) {
+      return res.status(400).json({ success: false, error: 'Nome é obrigatório' });
+    }
+
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ success: false, error: 'E-mail inválido' });
+    }
+
     const existingClient = await clientModel.getClientById(id, tenantId);
     if (!existingClient) {
       return res.status(404).json({ success: false, error: 'Cliente não encontrado' });
     }
 
+    // Normaliza CPF removendo máscara antes de salvar
+    const cpfNormalized = cpf ? cpf.replace(/\D/g, '') : null;
+    if (cpfNormalized && cpfNormalized.length !== 11) {
+      return res.status(400).json({ success: false, error: 'CPF deve ter 11 dígitos' });
+    }
+
     // Verificar se CPF já existe em outro cliente
-    if (cpf && cpf !== existingClient.cpf) {
-      const existingCPF = await clientModel.getClientByCPF(cpf, tenantId);
+    if (cpfNormalized && cpfNormalized !== existingClient.cpf) {
+      const existingCPF = await clientModel.getClientByCPF(cpfNormalized, tenantId);
       if (existingCPF) {
         return res.status(400).json({ success: false, error: 'CPF já cadastrado para outro cliente' });
       }
     }
 
     const client = await clientModel.updateClient(id, {
-      name, birth_date, cpf, cnh, first_cnh, phone, email, address, notes,
+      name: name.trim(), birth_date, cpf: cpfNormalized, cnh, first_cnh,
+      phone, email, address, notes,
       status: status || existingClient.status || 'negociacao',
     }, tenantId);
 

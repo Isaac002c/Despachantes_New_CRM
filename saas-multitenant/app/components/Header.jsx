@@ -58,30 +58,57 @@ export default function Header({ user, tenant, onLogout }) {
   return (
     <header className="global-header">
       <div className="header-left">
+        {/* Marca CR Multas */}
         <div className="header-logo">
-          <img 
-            src="/logoChronosTech.png" 
-            alt="ChronosTek" 
-            className="logo-image"
-          />
-          <span className="logo-text">ChronosTek</span>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '36px',
+            height: '36px',
+            background: '#751518',
+            borderRadius: '10px',
+            flexShrink: 0
+          }}>
+            <svg width="20" height="16" viewBox="0 0 44 36" fill="none">
+              <line x1="30" y1="2" x2="30" y2="14" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
+              <line x1="24" y1="5" x2="36" y2="5" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
+              <path d="M23 5 Q21 9 23 11 Q25 13 27 11 Q29 9 27 5" fill="none" stroke="white" strokeWidth="1.6"/>
+              <path d="M33 5 Q31 9 33 11 Q35 13 37 11 Q39 9 37 5" fill="none" stroke="white" strokeWidth="1.6"/>
+              <path d="M2 24 L4 19 Q6 16 9 16 L12 14 Q14 13 18 13 L26 14 Q27 14 28 16 L31 19 L33 24 Q33 27 31 27 L5 27 Q2 27 2 24Z"
+                    fill="white" opacity="0.9"/>
+              <circle cx="9" cy="27" r="3" fill="white" opacity="0.7"/>
+              <circle cx="25" cy="27" r="3" fill="white" opacity="0.7"/>
+            </svg>
+          </div>
+          <div style={{ marginLeft: '10px' }}>
+            <div style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b', lineHeight: 1.2 }}>
+              CR Multas
+            </div>
+            <div style={{ fontSize: '11px', color: '#94a3b8', lineHeight: 1.2 }}>
+              Assessoria de Trânsito
+            </div>
+          </div>
         </div>
       </div>
 
       <div className="header-right">
         {tenant && (
           <div className="tenant-badge">
-            <span className="tenant-icon">[Emp]</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+              <polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
             <span>{tenant.name}</span>
           </div>
         )}
 
-        <div 
+        <div
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
-            padding: '6px 12px',
+            padding: '5px 12px',
             background: roleBadge.bg,
             border: `1px solid ${roleBadge.color}30`,
             borderRadius: '16px',
@@ -93,21 +120,28 @@ export default function Header({ user, tenant, onLogout }) {
           }}
           title={role === 'admin' ? 'Acesso administrativo' : 'Acesso de vendedor'}
         >
-          {role === 'admin' ? '[Adm]' : '[Vend]'} {roleBadge.label}
+          {roleBadge.label}
         </div>
 
         <div className="module-dropdown" ref={dropdownRef}>
-          <button 
+          <button
             className="dropdown-trigger"
             onClick={() => setDropdownOpen(!dropdownOpen)}
           >
-            <span className="module-icon">*</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#751518' }}>
+              <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+              <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+            </svg>
             {currentModuleLabel}
-            <span className={`dropdown-arrow ${dropdownOpen ? 'open' : ''}`}>v</span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+              className={`dropdown-arrow ${dropdownOpen ? 'open' : ''}`}
+              style={{ transition: 'transform 0.2s' }}>
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
           </button>
-          
+
           {dropdownOpen && (
-          <div className="dropdown-menu">
+            <div className="dropdown-menu">
               {modules.map((module) => (
                 <button
                   key={module.key}
@@ -122,7 +156,7 @@ export default function Header({ user, tenant, onLogout }) {
         </div>
 
         <div className="header-user-info">
-          <div className="user-avatar">
+          <div className="user-avatar" style={{ background: 'linear-gradient(135deg, #751518, #9b2b2e)' }}>
             {user?.name?.charAt(0).toUpperCase() || 'U'}
           </div>
           <button onClick={onLogout} className="logout-btn-header">

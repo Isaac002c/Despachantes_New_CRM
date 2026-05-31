@@ -135,7 +135,7 @@ a {
 
 .dropdown-trigger:hover {
   background: #e2e8f0;
-  border-color: #3b82f6;
+  border-color: #751518;
   color: #1e293b;
 }
 
@@ -198,8 +198,8 @@ a {
 }
 
 .dropdown-item.active {
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
+  background: rgba(117, 21, 24, 0.1);
+  color: #751518;
 }
 
 /* User Info */
@@ -214,11 +214,11 @@ a {
   align-items: center;
   gap: 8px;
   padding: 8px 14px;
-  background: rgba(59, 130, 246, 0.08);
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  background: rgba(117, 21, 24, 0.07);
+  border: 1px solid rgba(117, 21, 24, 0.2);
   border-radius: 20px;
   font-size: 13px;
-  color: #3b82f6;
+  color: #751518;
   font-weight: 500;
 }
 
@@ -312,9 +312,9 @@ a {
 }
 
 .module-tab.active {
-  color: #3b82f6;
-  border-bottom-color: #3b82f6;
-  background: rgba(59, 130, 246, 0.05);
+  color: #751518;
+  border-bottom-color: #751518;
+  background: rgba(117, 21, 24, 0.05);
 }
 
 .tab-icon {
@@ -344,8 +344,8 @@ a {
 .loading-spinner {
   width: 48px;
   height: 48px;
-  border: 3px solid #334155;
-  border-top-color: #3b82f6;
+  border: 3px solid #1a0506;
+  border-top-color: #751518;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -417,7 +417,7 @@ a {
   left: 0;
   width: 4px;
   height: 100%;
-  background: #3b82f6;
+  background: #751518;
 }
 
 .kpi-card:hover {
@@ -744,14 +744,14 @@ h3 {
 }
 
 .period-btn:hover {
-  border-color: #3b82f6;
-  color: #3b82f6;
+  border-color: #751518;
+  color: #751518;
   background: #f8fafc;
 }
 
 .period-btn.active {
-  background: #3b82f6;
-  border-color: #3b82f6;
+  background: #751518;
+  border-color: #751518;
   color: #fff;
 }
 
@@ -1001,8 +1001,8 @@ input, select, textarea {
 
 input:focus, select:focus, textarea:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #751518;
+  box-shadow: 0 0 0 3px rgba(117, 21, 24, 0.1);
 }
 
 input::placeholder, textarea::placeholder {
@@ -1020,7 +1020,7 @@ select {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  background: linear-gradient(135deg, #751518, #5e1012);
   color: white;
   border: none;
   padding: 12px 24px;
@@ -1032,9 +1032,9 @@ select {
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  background: linear-gradient(135deg, #5e1012, #4a0c0d);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 4px 12px rgba(117, 21, 24, 0.4);
 }
 
 .btn-primary:disabled {

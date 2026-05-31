@@ -8,6 +8,7 @@ const rolePermissions = {
     'clients:create', 'clients:read', 'clients:update', 'clients:delete',
     'contracts:create', 'contracts:read', 'contracts:update', 'contracts:delete',
     'documents:create', 'documents:read', 'documents:update', 'documents:delete',
+    'fines:create', 'fines:read', 'fines:update', 'fines:delete',
     'reports:read', 'reports:export',
     'settings:read', 'settings:update',
     'billing:read', 'billing:update'
@@ -16,22 +17,26 @@ const rolePermissions = {
     'clients:create', 'clients:read', 'clients:update',
     'contracts:create', 'contracts:read', 'contracts:update',
     'documents:create', 'documents:read', 'documents:update',
+    'fines:create', 'fines:read', 'fines:update', 'fines:delete',
     'reports:read', 'reports:export'
   ],
   operator: [
     'clients:create', 'clients:read', 'clients:update',
     'contracts:create', 'contracts:read', 'contracts:update',
-    'documents:create', 'documents:read'
+    'documents:create', 'documents:read',
+    'fines:create', 'fines:read', 'fines:update'
   ],
   seller: [
     'clients:create', 'clients:read', 'clients:update',
     'contracts:create', 'contracts:read', 'contracts:update',
-    'documents:create', 'documents:read'
+    'documents:create', 'documents:read',
+    'fines:create', 'fines:read', 'fines:update'
   ],
   viewer: [
     'clients:read',
     'contracts:read',
     'documents:read',
+    'fines:read',
     'reports:read'
   ]
 };
