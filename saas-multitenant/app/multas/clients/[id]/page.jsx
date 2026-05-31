@@ -1,0 +1,1036 @@
+'use client';
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter, useParams } from 'next/navigation';
+import { getClientById, updateClient } from '../../../lib/clientsAPI';
+import { getServicesByClient, deleteService } from '../../../lib/servicesAPI';
+import { getContractsByService, createContract, updateContract, deleteContract } from '../../../lib/contractsAPI';
+
+// ─── Constantes de negócio ────────────────────────────
+
+const SERVICE_TYPES = [
+  { value: 'MULTA',           label: 'Auto de Infração' },
+  { value: 'PROCESSO',        label: 'Processo' },
+  { value: 'CRCI',            label: 'CRCI' },
+  { value: 'SUSPENSAO',       label: 'Suspensão' },
+  { value: 'CASSACAO',        label: 'Cassação' },
+  { value: 'REVISAO DE ATOS', label: 'Revisão de Atos' },
+  { value: 'OUTROS',          label: 'Outros' },
+];
+
+const SERVICE_TYPE_IDS = {
+  'MULTA': '2', 'PROCESSO': '6', 'CRCI': '1',
+  'SUSPENSAO': '3', 'CASSACAO': '4', 'REVISAO DE ATOS': '5', 'OUTROS': '7',
+};
+
+// Status disponíveis por tipo de serviço
+const STATUS_OPTIONS_MULTA = [
+  { value: 'APRS DEFESA PREVIA',      label: 'Defesa Prévia' },
+  { value: 'DEFESA PREVIA - ANALISE', label: 'Defesa Prévia — Análise' },
+  { value: 'APRS 1 INSTANCIA',        label: '1ª Instância' },
+  { value: '1 INSTANCIA - ANALISE',   label: '1ª Instância — Análise' },
+  { value: 'APRS 2 INSTANCIA',        label: '2ª Instância' },
+  { value: '2 INSTANCIA - ANALISE',   label: '2ª Instância — Análise' },
+  { value: 'MANDATORIA',              label: 'Mandatória' },
+  { value: 'EXCESSO DE PONTOS',       label: 'Excesso de Pontos' },
+  { value: 'PROTOCOLADO',             label: 'Protocolado' },
+  { value: 'DEFERIDO',                label: 'Deferido' },
+  { value: 'INDEFERIDO',              label: 'Indeferido' },
+  { value: 'TRANSITO EM JULGADO',     label: 'Trânsito em Julgado' },
+  { value: 'FINALIZADO',              label: 'Finalizado' },
+  { value: 'CANCELADO',               label: 'Cancelado' },
+];
+
+const STATUS_OPTIONS_PROCESSO = [
+  { value: 'APRS DEFESA PREVIA',      label: 'Defesa Prévia' },
+  { value: 'DEFESA PREVIA - ANALISE', label: 'Defesa Prévia — Análise' },
+  { value: 'APRS 1 INSTANCIA',        label: '1ª Instância' },
+  { value: '1 INSTANCIA - ANALISE',   label: '1ª Instância — Análise' },
+  { value: 'APRS 2 INSTANCIA',        label: '2ª Instância' },
+  { value: '2 INSTANCIA - ANALISE',   label: '2ª Instância — Análise' },
+  { value: 'MANDATORIA',              label: 'Mandatória' },
+  { value: 'EXCESSO DE PONTOS',       label: 'Excesso de Pontos' },
+  { value: 'PROTOCOLADO',             label: 'Protocolado' },
+  { value: 'DEFERIDO',                label: 'Deferido' },
+  { value: 'INDEFERIDO',              label: 'Indeferido' },
+  { value: 'TRANSITO EM JULGADO',     label: 'Trânsito em Julgado' },
+  { value: 'FINALIZADO',              label: 'Finalizado' },
+  { value: 'CANCELADO',               label: 'Cancelado' },
+];
+
+const STATUS_OPTIONS_GENERIC = [
+  { value: 'EM ANDAMENTO',   label: 'Em Andamento' },
+  { value: 'PROTOCOLADO',    label: 'Protocolado' },
+  { value: 'DEFERIDO',       label: 'Deferido' },
+  { value: 'INDEFERIDO',     label: 'Indeferido' },
+  { value: 'FINALIZADO',     label: 'Finalizado' },
+  { value: 'CANCELADO',      label: 'Cancelado' },
+];
+
+const ORGANS = ['DETRAN', 'DER', 'DNIT', 'SMTR', 'RENAINF', 'PMRJ', 'PREFEITURA UF', 'OUTROS'];
+
+const STATUS_COLORS = {
+  'APRS DEFESA PREVIA':      { bg: '#ede9fe', text: '#6366f1' },
+  'DEFESA PREVIA - ANALISE': { bg: '#ede9fe', text: '#8b5cf6' },
+  'APRS 1 INSTANCIA':        { bg: '#fef3c7', text: '#d97706' },
+  '1 INSTANCIA - ANALISE':   { bg: '#ffedd5', text: '#ea580c' },
+  'APRS 2 INSTANCIA':        { bg: '#fee2e2', text: '#dc2626' },
+  '2 INSTANCIA - ANALISE':   { bg: '#fee2e2', text: '#b91c1c' },
+  'MANDATORIA':               { bg: '#fdf2f8', text: '#c026d3' },
+  'EXCESSO DE PONTOS':        { bg: '#fdf4ff', text: '#a21caf' },
+  'PROTOCOLADO':              { bg: '#f0fdf4', text: '#16a34a' },
+  'DEFERIDO':                 { bg: '#dcfce7', text: '#15803d' },
+  'INDEFERIDO':               { bg: '#fee2e2', text: '#991b1b' },
+  'TRANSITO EM JULGADO':      { bg: '#f0fdf4', text: '#166534' },
+  'FINALIZADO':               { bg: '#f1f5f9', text: '#475569' },
+  'CANCELADO':                { bg: '#f1f5f9', text: '#94a3b8' },
+  'EM ANDAMENTO':             { bg: '#eff6ff', text: '#3b82f6' },
+};
+
+const getStatusOptions = (serviceValue) => {
+  if (serviceValue === 'MULTA')    return STATUS_OPTIONS_MULTA;
+  if (serviceValue === 'PROCESSO') return STATUS_OPTIONS_PROCESSO;
+  return STATUS_OPTIONS_GENERIC;
+};
+
+const getStatusStyle = (status) => {
+  const c = STATUS_COLORS[status];
+  return c ? { background: c.bg, color: c.text } : { background: '#f1f5f9', color: '#475569' };
+};
+
+const getStatusLabel = (status) => {
+  const all = [...STATUS_OPTIONS_MULTA, ...STATUS_OPTIONS_GENERIC];
+  return all.find(o => o.value === status)?.label || status || '—';
+};
+
+const getServiceLabel = (value) =>
+  SERVICE_TYPES.find(t => t.value === value?.toUpperCase())?.label || value || '—';
+
+// ─── Helpers ─────────────────────────────────────────
+
+const formatDate = (v) => (!v ? '—' : new Date(v).toLocaleDateString('pt-BR'));
+const formatCPF  = (v) => (v ? v.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/g, '$1.$2.$3-$4') : '—');
+const toInputDate = (v) => (!v ? '' : v.substring(0, 10));
+
+const CLIENT_STATUS_OPTIONS = [
+  { value: 'negociacao', label: 'Negociação' },
+  { value: 'fechado',    label: 'Fechado' },
+];
+
+const EMPTY_CONTRACT = {
+  numero_multa: '', vehicle_plate: '', organ: '', status: '', notes: '',
+  // Protocolo
+  protocol_number: '', protocol_date: '', protocol_status: '', protocol_notes: '',
+};
+
+const PROTOCOL_STATUS_OPTIONS = [
+  { value: 'pendente',    label: 'Pendente' },
+  { value: 'protocolado', label: 'Protocolado' },
+  { value: 'concluido',   label: 'Concluído' },
+  { value: 'indeferido',  label: 'Indeferido' },
+];
+
+// ─── Componente principal ────────────────────────────
+
+export default function ClientDetail() {
+  const router   = useRouter();
+  const params   = useParams();
+  const clientId = params?.id;
+
+  const [client, setClient]             = useState(null);
+  const [services, setServices]         = useState([]);
+  const [contractsMap, setContractsMap] = useState({});
+  const [loading, setLoading]           = useState(true);
+  const [error, setError]               = useState(null);
+
+  // Editar dados do cliente
+  const [editingClientData, setEditingClientData] = useState(false);
+  const [clientForm, setClientForm]               = useState({});
+  const [savingClient, setSavingClient]           = useState(false);
+
+  // Modal de serviço
+  const [showServiceModal, setShowServiceModal]     = useState(false);
+  const [selectedServiceType, setSelectedServiceType] = useState('');
+
+  // Modal de contrato/auto
+  const [showContractModal, setShowContractModal] = useState(false);
+  const [selectedService, setSelectedService]     = useState(null);
+  const [editingContract, setEditingContract]     = useState(null);
+  const [contractForm, setContractForm]           = useState(EMPTY_CONTRACT);
+  const [savingContract, setSavingContract]       = useState(false);
+
+  // Documentos do cliente
+  const [clientDocs, setClientDocs]         = useState([]);
+  const [showDocModal, setShowDocModal]     = useState(false);
+  const [docForm, setDocForm]               = useState({ name: '', type: '', description: '' });
+  const [savingDoc, setSavingDoc]           = useState(false);
+
+  // Protocolo expandido por contrato
+  const [expandedProtocol, setExpandedProtocol] = useState(null); // fine id
+
+  const loadAll = useCallback(async () => {
+    if (!clientId) return;
+    try {
+      setLoading(true);
+      const [clientData, servicesData] = await Promise.all([
+        getClientById(clientId),
+        getServicesByClient(clientId),
+      ]);
+      setClient(clientData);
+      const svcs = servicesData || [];
+      setServices(svcs);
+      const entries = await Promise.all(
+        svcs.map(async (s) => {
+          try {
+            const contracts = await getContractsByService(s.id, clientId) || [];
+            return [s.id, contracts];
+          } catch { return [s.id, []]; }
+        })
+      );
+      setContractsMap(Object.fromEntries(entries));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [clientId]);
+
+  useEffect(() => {
+    loadAll();
+    loadClientDocs();
+  // eslint-disable-next-line
+  }, [clientId]);
+
+  // ── Edição do cliente ────────────────────────────
+
+  const startEditClient = () => {
+    setClientForm({
+      name:       client.name       || '',
+      birth_date: toInputDate(client.birth_date),
+      cpf:        client.cpf        || '',
+      cnh:        client.cnh        || '',
+      first_cnh:  toInputDate(client.first_cnh),
+      phone:      client.phone      || '',
+      email:      client.email      || '',
+      address:    client.address    || '',
+      notes:      client.notes      || '',
+      status:     client.status     || 'negociacao',
+    });
+    setEditingClientData(true);
+  };
+
+  const saveClient = async (e) => {
+    e.preventDefault();
+    try {
+      setSavingClient(true);
+      await updateClient(client.id, clientForm);
+      setEditingClientData(false);
+      await loadAll();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSavingClient(false);
+    }
+  };
+
+  const setC = (field) => (e) => setClientForm(prev => ({ ...prev, [field]: e.target.value }));
+
+  // ── Serviços ────────────────────────────────────
+
+  const handleSelectServiceType = (e) => {
+    e.preventDefault();
+    if (!selectedServiceType) return;
+    const val  = selectedServiceType.toUpperCase();
+    const fake = { id: SERVICE_TYPE_IDS[val] || '7', name: selectedServiceType };
+    setShowServiceModal(false);
+    setSelectedServiceType('');
+    openContractModal(fake);
+  };
+
+  const handleDeleteService = async (serviceId) => {
+    if (!confirm('Excluir este serviço e todos os registros vinculados?')) return;
+    try {
+      await deleteService(serviceId, clientId);
+      await loadAll();
+    } catch (err) { setError(err.message); }
+  };
+
+  // ── Contratos / Autos ───────────────────────────
+
+  const openContractModal = (service, contract = null) => {
+    setSelectedService(service);
+    setEditingContract(contract);
+    setContractForm(contract ? {
+      numero_multa:  contract.numero_multa  || '',
+      vehicle_plate: contract.vehicle_plate || '',
+      organ:         contract.organ         || '',
+      status:        contract.status        || '',
+      notes:         contract.notes         || '',
+    } : EMPTY_CONTRACT);
+    setShowContractModal(true);
+  };
+
+  const handleSaveContract = async (e) => {
+    e.preventDefault();
+    const name = selectedService.name?.toUpperCase() || '';
+    if (!contractForm.status) { setError('Selecione o andamento'); return; }
+    if (name === 'MULTA' && !contractForm.numero_multa) { setError('Informe o número do Auto de Infração'); return; }
+
+    const payload = {
+      client_id:     clientId,
+      service_id:    selectedService.id,
+      numero_multa:  contractForm.numero_multa  || null,
+      vehicle_plate: contractForm.vehicle_plate || null,
+      organ:         contractForm.organ         || 'DETRAN',
+      status:        contractForm.status,
+      notes:         contractForm.notes         || null,
+    };
+
+    try {
+      setSavingContract(true);
+      if (editingContract) {
+        await updateContract(editingContract.id, payload);
+      } else {
+        await createContract(payload);
+      }
+      setShowContractModal(false);
+      await loadAll();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSavingContract(false);
+    }
+  };
+
+  const handleDeleteContract = async (serviceId, contractId) => {
+    if (!confirm('Excluir este registro?')) return;
+    try {
+      await deleteContract(contractId);
+      const updated = await getContractsByService(serviceId, clientId);
+      setContractsMap(prev => ({ ...prev, [serviceId]: updated || [] }));
+    } catch (err) { setError(err.message); }
+  };
+
+  // ── Salvar protocolo no contrato ──────────────────
+  const handleSaveProtocol = async (contractId, protocolData) => {
+    try {
+      await updateContract(contractId, { ...protocolData });
+      await loadAll();
+      setExpandedProtocol(null);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  // ── Documentos do cliente (localStorage temporário) ──
+  const loadClientDocs = () => {
+    if (!clientId) return;
+    try {
+      const stored = localStorage.getItem(`client_docs_${clientId}`);
+      setClientDocs(stored ? JSON.parse(stored) : []);
+    } catch { setClientDocs([]); }
+  };
+
+  const saveClientDoc = (e) => {
+    e.preventDefault();
+    if (!docForm.name) return;
+    setSavingDoc(true);
+    try {
+      const newDoc = {
+        id: Date.now().toString(),
+        ...docForm,
+        created_at: new Date().toISOString(),
+      };
+      const updated = [...clientDocs, newDoc];
+      localStorage.setItem(`client_docs_${clientId}`, JSON.stringify(updated));
+      setClientDocs(updated);
+      setDocForm({ name: '', type: '', description: '' });
+      setShowDocModal(false);
+    } finally {
+      setSavingDoc(false);
+    }
+  };
+
+  const deleteClientDoc = (id) => {
+    if (!confirm('Excluir documento?')) return;
+    const updated = clientDocs.filter(d => d.id !== id);
+    localStorage.setItem(`client_docs_${clientId}`, JSON.stringify(updated));
+    setClientDocs(updated);
+  };
+
+  // ── Render ───────────────────────────────────────
+
+  if (loading) return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh', flexDirection: 'column', gap: 14 }}>
+      <div className="loading-spinner" style={{ width: 32, height: 32, border: '3px solid #e2e8f0', borderTopColor: '#751518' }} />
+      <p style={{ color: '#94a3b8', fontSize: 14 }}>Carregando cliente...</p>
+    </div>
+  );
+
+  if (!client) return (
+    <div style={{ textAlign: 'center', padding: 60 }}>
+      <p style={{ color: '#ef4444', marginBottom: 16 }}>Cliente não encontrado.</p>
+      <button onClick={() => router.back()} className="btn-secondary">← Voltar</button>
+    </div>
+  );
+
+  const clientStatusLabel = CLIENT_STATUS_OPTIONS.find(o => o.value === client.status)?.label || 'Negociação';
+
+  return (
+    <div className="client-detail-page">
+
+      {/* Breadcrumb */}
+      <div className="cd-breadcrumb">
+        <button onClick={() => router.push('/dashboard?module=multas&tab=clients')} className="cd-back-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+          Clientes
+        </button>
+        <span className="cd-breadcrumb-sep">/</span>
+        <span className="cd-breadcrumb-current">{client.name}</span>
+      </div>
+
+      {error && (
+        <div className="error-message" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+          <span>{error}</span>
+          <button onClick={() => setError(null)} style={{ border: 'none', background: 'none', cursor: 'pointer' }}>✕</button>
+        </div>
+      )}
+
+      {/* Header do cliente */}
+      <div className="cd-client-card">
+        <div className="cd-client-avatar">
+          {client.name?.charAt(0).toUpperCase()}
+        </div>
+        <div className="cd-client-info">
+          <div className="cd-client-title-row">
+            <h1 className="cd-client-name">{client.name}</h1>
+            <span className={`client-status-badge ${client.status || 'negociacao'}`}>
+              {clientStatusLabel}
+            </span>
+          </div>
+          <div className="cd-client-fields">
+            {[
+              { label: 'CPF',          value: formatCPF(client.cpf) },
+              { label: 'CNH',          value: client.cnh || '—' },
+              { label: '1ª CNH',       value: formatDate(client.first_cnh) },
+              { label: 'Nascimento',   value: formatDate(client.birth_date) },
+              { label: 'Telefone',     value: client.phone || '—' },
+              { label: 'E-mail',       value: client.email || '—' },
+            ].map(({ label, value }) => (
+              <div key={label} className="cd-field">
+                <span className="cd-field-label">{label}</span>
+                <span className="cd-field-value">{value}</span>
+              </div>
+            ))}
+            {client.address && (
+              <div className="cd-field" style={{ gridColumn: '1 / -1' }}>
+                <span className="cd-field-label">Endereço</span>
+                <span className="cd-field-value">{client.address}</span>
+              </div>
+            )}
+            {client.notes && (
+              <div className="cd-field" style={{ gridColumn: '1 / -1' }}>
+                <span className="cd-field-label">Observações</span>
+                <span className="cd-field-value" style={{ fontStyle: 'italic', color: '#64748b' }}>{client.notes}</span>
+              </div>
+            )}
+          </div>
+        </div>
+        <button onClick={startEditClient} className="cd-edit-btn" title="Editar dados do cliente">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+          Editar
+        </button>
+      </div>
+
+      {/* Serviços / Contratações */}
+      <div className="cd-services-section">
+        <div className="cd-services-header">
+          <div>
+            <h2 className="cd-services-title">Serviços Contratados</h2>
+            <p className="cd-services-sub">{services.length} tipo{services.length !== 1 ? 's' : ''} de serviço</p>
+          </div>
+          <button onClick={() => setShowServiceModal(true)} className="btn-primary cd-add-service-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Novo Serviço
+          </button>
+        </div>
+
+        {services.length === 0 ? (
+          <div className="cd-empty-services">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="1.5">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            <p>Nenhum serviço contratado ainda.</p>
+            <button onClick={() => setShowServiceModal(true)} className="btn-primary" style={{ marginTop: 12 }}>
+              Adicionar primeiro serviço
+            </button>
+          </div>
+        ) : (
+          <div className="cd-services-list">
+            {services.map((service) => {
+              const contracts = contractsMap[service.id] || [];
+              const name      = service.name?.toUpperCase();
+              const label     = getServiceLabel(name);
+              const statusOpts = getStatusOptions(name);
+              return (
+                <div key={service.id} className="cd-service-block">
+                  {/* Service header */}
+                  <div className="cd-service-block-header">
+                    <div className="cd-service-block-title">
+                      <span className="cd-service-type-badge">{label}</span>
+                      <span className="cd-service-count">
+                        {contracts.length} registro{contracts.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <div className="cd-service-block-actions">
+                      <button
+                        onClick={() => openContractModal(service)}
+                        className="btn-primary"
+                        style={{ padding: '6px 14px', fontSize: 13, borderRadius: 8 }}
+                      >
+                        + Adicionar
+                      </button>
+                      <button
+                        onClick={() => handleDeleteService(service.id)}
+                        className="btn-icon danger"
+                        title="Excluir serviço"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="3 6 5 6 21 6"/>
+                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                          <path d="M10 11v6M14 11v6"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Contracts table */}
+                  {contracts.length === 0 ? (
+                    <div className="cd-service-empty">
+                      Nenhum registro neste serviço. Clique em "+ Adicionar".
+                    </div>
+                  ) : (
+                    <table className="data-table" style={{ border: 'none', borderRadius: 0 }}>
+                      <thead>
+                        <tr>
+                          {name === 'MULTA' && <><th>Nº Auto de Infração</th><th>Placa</th></>}
+                          {name === 'PROCESSO' && <><th>Tipo/Órgão</th></>}
+                          {name !== 'MULTA' && name !== 'PROCESSO' && <th>Serviço</th>}
+                          <th>Andamento</th>
+                          <th>Observações</th>
+                          <th style={{ width: 80 }}>Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {contracts.map((contract) => (
+                          <React.Fragment key={contract.id}>
+                          <tr>
+                            {name === 'MULTA' && (
+                              <>
+                                <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>
+                                  {contract.numero_multa || '—'}
+                                </td>
+                                <td>{contract.vehicle_plate || '—'}</td>
+                              </>
+                            )}
+                            {name === 'PROCESSO' && (
+                              <td>{[contract.infraction_type, contract.organ].filter(Boolean).join(' / ') || '—'}</td>
+                            )}
+                            {name !== 'MULTA' && name !== 'PROCESSO' && (
+                              <td>{label}</td>
+                            )}
+                            <td>
+                              <span className="service-status-badge" style={getStatusStyle(contract.status)}>
+                                {getStatusLabel(contract.status)}
+                              </span>
+                            </td>
+                            <td style={{ color: '#64748b', fontSize: 13 }}>
+                              {contract.notes || '—'}
+                            </td>
+                            <td>
+                              <div className="actions-cell">
+                                <button
+                                  onClick={() => setExpandedProtocol(prev => prev === contract.id ? null : contract.id)}
+                                  className="btn-icon"
+                                  title="Protocolo"
+                                  style={{ color: contract.protocol_number ? '#751518' : undefined }}
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                    <polyline points="14 2 14 8 20 8"/>
+                                    <line x1="16" y1="13" x2="8" y2="13"/>
+                                    <line x1="16" y1="17" x2="8" y2="17"/>
+                                  </svg>
+                                </button>
+                                <button onClick={() => openContractModal(service, contract)} className="btn-icon" title="Editar">
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                  </svg>
+                                </button>
+                                <button onClick={() => handleDeleteContract(service.id, contract.id)} className="btn-icon danger" title="Excluir">
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <polyline points="3 6 5 6 21 6"/>
+                                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                                    <path d="M10 11v6M14 11v6"/>
+                                  </svg>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+
+                          {/* Painel de Protocolo inline */}
+                          {expandedProtocol === contract.id && (
+                            <tr>
+                              <td colSpan="99" style={{ padding: 0, background: 'rgba(117,21,24,0.03)' }}>
+                                <ProtocolPanel
+                                  contract={contract}
+                                  onSave={(data) => handleSaveProtocol(contract.id, data)}
+                                  onClose={() => setExpandedProtocol(null)}
+                                />
+                              </td>
+                            </tr>
+                          )}
+                          </React.Fragment>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Documentos do Cliente ── */}
+      <div className="cd-services-section">
+        <div className="cd-services-header">
+          <div>
+            <h2 className="cd-services-title">Documentos do Cliente</h2>
+            <p className="cd-services-sub">{clientDocs.length} documento{clientDocs.length !== 1 ? 's' : ''} anexado{clientDocs.length !== 1 ? 's' : ''}</p>
+          </div>
+          <button onClick={() => setShowDocModal(true)} className="btn-primary cd-add-service-btn" style={{ background: '#475569', borderColor: '#475569' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Adicionar Documento
+          </button>
+        </div>
+
+        {clientDocs.length === 0 ? (
+          <div className="cd-empty-services" style={{ background: '#fff', border: '1px dashed #e2e8f0' }}>
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="1.5">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            <p>Nenhum documento cadastrado. Clique em "Adicionar Documento".</p>
+            <p style={{ fontSize: 12, color: '#cbd5e1', marginTop: 4 }}>
+              Upload real de arquivos será disponibilizado em breve.
+            </p>
+          </div>
+        ) : (
+          <div className="cd-doc-list">
+            {clientDocs.map((doc) => (
+              <div key={doc.id} className="cd-doc-item">
+                <div className="cd-doc-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                  </svg>
+                </div>
+                <div className="cd-doc-info">
+                  <span className="cd-doc-name">{doc.name}</span>
+                  <span className="cd-doc-meta">
+                    {doc.type && <span>{doc.type}</span>}
+                    {doc.description && <span>{doc.description}</span>}
+                    <span>{new Date(doc.created_at).toLocaleDateString('pt-BR')}</span>
+                  </span>
+                </div>
+                <button onClick={() => deleteClientDoc(doc.id)} className="btn-icon danger" title="Excluir">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Modal: Editar dados do cliente ── */}
+      {editingClientData && (
+        <div className="modal-overlay" onClick={() => setEditingClientData(false)}>
+          <div className="modal-content" style={{ maxWidth: 540 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 style={{ fontSize: 17, fontWeight: 700 }}>Editar Cliente</h2>
+              <button onClick={() => setEditingClientData(false)} className="btn-close">✕</button>
+            </div>
+            <form onSubmit={saveClient} className="modal-form">
+              <div className="form-group">
+                <label>Nome completo *</label>
+                <input type="text" value={clientForm.name} onChange={setC('name')} required />
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>CPF</label>
+                  <input type="text" value={clientForm.cpf} onChange={setC('cpf')} maxLength={14} />
+                </div>
+                <div className="form-group">
+                  <label>Nascimento</label>
+                  <input type="date" value={clientForm.birth_date} onChange={setC('birth_date')} />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>CNH</label>
+                  <input type="text" value={clientForm.cnh} onChange={setC('cnh')} />
+                </div>
+                <div className="form-group">
+                  <label>1ª Habilitação</label>
+                  <input type="date" value={clientForm.first_cnh} onChange={setC('first_cnh')} />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Telefone</label>
+                  <input type="text" value={clientForm.phone} onChange={setC('phone')} />
+                </div>
+                <div className="form-group">
+                  <label>E-mail</label>
+                  <input type="email" value={clientForm.email} onChange={setC('email')} />
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Endereço</label>
+                <input type="text" value={clientForm.address} onChange={setC('address')} />
+              </div>
+              <div className="form-group">
+                <label>Status</label>
+                <select value={clientForm.status} onChange={setC('status')}>
+                  {CLIENT_STATUS_OPTIONS.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Observações</label>
+                <textarea value={clientForm.notes} onChange={setC('notes')} rows={3} />
+              </div>
+              <div className="form-actions">
+                <button type="button" className="btn-secondary" onClick={() => setEditingClientData(false)}>Cancelar</button>
+                <button type="submit" className="btn-primary" disabled={savingClient}>
+                  {savingClient ? 'Salvando...' : 'Salvar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Selecionar tipo de serviço ── */}
+      {showServiceModal && (
+        <div className="modal-overlay" onClick={() => setShowServiceModal(false)}>
+          <div className="modal-content" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 style={{ fontSize: 17, fontWeight: 700 }}>Novo Serviço</h2>
+              <button onClick={() => setShowServiceModal(false)} className="btn-close">✕</button>
+            </div>
+            <div className="modal-body">
+              <p style={{ color: '#64748b', fontSize: 13, marginBottom: 16 }}>
+                Selecione o tipo de serviço a ser adicionado para este cliente.
+              </p>
+              <form onSubmit={handleSelectServiceType}>
+                <div className="form-group">
+                  <label>Tipo de Serviço *</label>
+                  <select value={selectedServiceType} onChange={e => setSelectedServiceType(e.target.value)} required>
+                    <option value="">Selecione...</option>
+                    {SERVICE_TYPES.map(t => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-actions">
+                  <button type="button" className="btn-secondary" onClick={() => setShowServiceModal(false)}>Cancelar</button>
+                  <button type="submit" className="btn-primary" disabled={!selectedServiceType}>Continuar</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Adicionar/Editar registro (contrato/auto) ── */}
+      {showContractModal && selectedService && (
+        <div className="modal-overlay" onClick={() => setShowContractModal(false)}>
+          <div className="modal-content" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h2 style={{ fontSize: 17, fontWeight: 700 }}>
+                  {editingContract ? 'Editar' : 'Novo'} — {getServiceLabel(selectedService.name?.toUpperCase())}
+                </h2>
+                <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>
+                  {editingContract ? 'Atualize o andamento do processo' : 'Adicione um novo registro para este serviço'}
+                </p>
+              </div>
+              <button onClick={() => setShowContractModal(false)} className="btn-close">✕</button>
+            </div>
+            <div className="modal-body">
+              <form onSubmit={handleSaveContract}>
+                {(() => {
+                  const name     = selectedService.name?.toUpperCase();
+                  const statusOp = getStatusOptions(name);
+                  return (
+                    <>
+                      {name === 'MULTA' && (
+                        <>
+                          <div className="form-group">
+                            <label>Nº do Auto de Infração *</label>
+                            <input
+                              value={contractForm.numero_multa}
+                              onChange={e => setContractForm({ ...contractForm, numero_multa: e.target.value })}
+                              placeholder="Ex.: T123456789"
+                              required
+                            />
+                          </div>
+                          <div className="form-row">
+                            <div className="form-group">
+                              <label>Placa do Veículo</label>
+                              <input
+                                value={contractForm.vehicle_plate}
+                                onChange={e => setContractForm({ ...contractForm, vehicle_plate: e.target.value })}
+                                placeholder="ABC-1234"
+                              />
+                            </div>
+                            <div className="form-group">
+                              <label>Órgão Autuador</label>
+                              <select
+                                value={contractForm.organ}
+                                onChange={e => setContractForm({ ...contractForm, organ: e.target.value })}
+                              >
+                                <option value="">Selecione...</option>
+                                {ORGANS.map(o => <option key={o} value={o}>{o}</option>)}
+                              </select>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                      {name === 'PROCESSO' && (
+                        <div className="form-group">
+                          <label>Órgão / Tipo *</label>
+                          <select
+                            value={contractForm.organ}
+                            onChange={e => setContractForm({ ...contractForm, organ: e.target.value })}
+                          >
+                            <option value="">Selecione...</option>
+                            {ORGANS.map(o => <option key={o} value={o}>{o}</option>)}
+                          </select>
+                        </div>
+                      )}
+                      <div className="form-group">
+                        <label>Andamento *</label>
+                        <select
+                          value={contractForm.status}
+                          onChange={e => setContractForm({ ...contractForm, status: e.target.value })}
+                          required
+                        >
+                          <option value="">Selecione o andamento...</option>
+                          {statusOp.map(o => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label>Observações</label>
+                        <textarea
+                          value={contractForm.notes}
+                          onChange={e => setContractForm({ ...contractForm, notes: e.target.value })}
+                          rows={2}
+                          placeholder="Informações adicionais sobre este registro..."
+                        />
+                      </div>
+                    </>
+                  );
+                })()}
+                <div className="form-actions">
+                  <button type="button" className="btn-secondary" onClick={() => setShowContractModal(false)}>Cancelar</button>
+                  <button type="submit" className="btn-primary" disabled={savingContract}>
+                    {savingContract ? 'Salvando...' : editingContract ? 'Salvar' : 'Criar'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Adicionar documento ── */}
+      {showDocModal && (
+        <div className="modal-overlay" onClick={() => setShowDocModal(false)}>
+          <div className="modal-content" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 style={{ fontSize: 17, fontWeight: 700 }}>Novo Documento</h2>
+              <button onClick={() => setShowDocModal(false)} className="btn-close">✕</button>
+            </div>
+            <form onSubmit={saveClientDoc} className="modal-form">
+              <div className="form-group">
+                <label>Nome do documento *</label>
+                <input
+                  type="text"
+                  value={docForm.name}
+                  onChange={e => setDocForm({ ...docForm, name: e.target.value })}
+                  placeholder="Ex.: CNH, Comprovante de Residência, Procuração..."
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Tipo</label>
+                <select value={docForm.type} onChange={e => setDocForm({ ...docForm, type: e.target.value })}>
+                  <option value="">Selecione o tipo...</option>
+                  {['CNH', 'CPF', 'RG', 'Comprovante de Residência', 'Procuração', 'Auto de Infração', 'Protocolo', 'Outros'].map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Descrição</label>
+                <input
+                  type="text"
+                  value={docForm.description}
+                  onChange={e => setDocForm({ ...docForm, description: e.target.value })}
+                  placeholder="Observações sobre este documento..."
+                />
+              </div>
+              <div className="cd-doc-upload-placeholder">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                <span>Upload de arquivo — em breve</span>
+              </div>
+              <div className="form-actions">
+                <button type="button" className="btn-secondary" onClick={() => setShowDocModal(false)}>Cancelar</button>
+                <button type="submit" className="btn-primary" disabled={savingDoc}>
+                  {savingDoc ? 'Salvando...' : 'Adicionar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Componente de Protocolo inline ────────────────────────────────────────────
+
+function ProtocolPanel({ contract, onSave, onClose }) {
+  const [form, setForm] = useState({
+    protocol_number: contract.protocol_number || '',
+    protocol_date:   contract.protocol_date ? contract.protocol_date.substring(0,10) : '',
+    protocol_status: contract.protocol_status || 'pendente',
+    protocol_notes:  contract.protocol_notes || '',
+  });
+  const [saving, setSaving] = useState(false);
+
+  const PROTOCOL_STATUS_OPTIONS = [
+    { value: 'pendente',    label: 'Pendente' },
+    { value: 'protocolado', label: 'Protocolado' },
+    { value: 'concluido',   label: 'Concluído' },
+    { value: 'indeferido',  label: 'Indeferido' },
+  ];
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await onSave(form);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="cd-protocol-panel">
+      <div className="cd-protocol-header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#751518" strokeWidth="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+          <span className="cd-protocol-title">Protocolo</span>
+          {contract.protocol_number && (
+            <span className="cd-protocol-badge">{contract.protocol_number}</span>
+          )}
+        </div>
+        <button className="cd-protocol-close" onClick={onClose}>✕</button>
+      </div>
+
+      <form onSubmit={handleSave} className="cd-protocol-form">
+        <div className="cd-protocol-grid">
+          <div className="form-group" style={{ margin: 0 }}>
+            <label>Número do Protocolo</label>
+            <input
+              type="text"
+              value={form.protocol_number}
+              onChange={e => setForm({ ...form, protocol_number: e.target.value })}
+              placeholder="Ex.: 2024/00123"
+            />
+          </div>
+          <div className="form-group" style={{ margin: 0 }}>
+            <label>Data do Protocolo</label>
+            <input
+              type="date"
+              value={form.protocol_date}
+              onChange={e => setForm({ ...form, protocol_date: e.target.value })}
+            />
+          </div>
+          <div className="form-group" style={{ margin: 0 }}>
+            <label>Status</label>
+            <select value={form.protocol_status} onChange={e => setForm({ ...form, protocol_status: e.target.value })}>
+              {PROTOCOL_STATUS_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="form-group" style={{ margin: '10px 0 0' }}>
+          <label>Observações do Protocolo</label>
+          <textarea
+            value={form.protocol_notes}
+            onChange={e => setForm({ ...form, protocol_notes: e.target.value })}
+            rows={2}
+            placeholder="Informações adicionais sobre o protocolo..."
+          />
+        </div>
+        <div className="cd-protocol-upload-hint">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <span>Anexo de arquivo — em breve</span>
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+          <button type="button" className="btn-secondary" style={{ fontSize: 12, padding: '6px 14px' }} onClick={onClose}>
+            Cancelar
+          </button>
+          <button type="submit" className="btn-primary" style={{ fontSize: 12, padding: '6px 14px' }} disabled={saving}>
+            {saving ? 'Salvando...' : 'Salvar Protocolo'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
