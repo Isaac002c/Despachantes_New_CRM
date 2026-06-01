@@ -128,12 +128,18 @@ const isoToDisplay = (v) => {
   return s;
 };
 
-// Converte dd/mm/aaaa (ou variações) → yyyy-mm-dd para salvar no banco
+// Converte dd/mm/aaaa, ddmmaaaa, yyyy-mm-dd → yyyy-mm-dd para salvar no banco
 const displayToIso = (v) => {
   if (!v || !v.trim()) return null;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(v.trim())) return v.trim();
-  const m = v.trim().match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
-  if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  const s = v.trim();
+  // Já é ISO
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // Com separadores: dd/mm/aaaa ou dd-mm-aaaa
+  const mSep = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+  if (mSep) return `${mSep[3]}-${mSep[2].padStart(2,'0')}-${mSep[1].padStart(2,'0')}`;
+  // Só 8 dígitos: ddmmaaaa
+  const mRaw = s.match(/^(\d{2})(\d{2})(\d{4})$/);
+  if (mRaw) return `${mRaw[3]}-${mRaw[2]}-${mRaw[1]}`;
   return null;
 };
 
@@ -268,17 +274,16 @@ export default function ClientDetail() {
     if (field === 'cpf') {
       value = value.replace(/\D/g, '').slice(0, 11);
     } else if (field === 'birth_date' || field === 'first_cnh') {
-      // Ao colar (>5 chars) aceita dd/mm/aaaa ou yyyy-mm-dd direto
-      // Ao digitar, insere barras automaticamente
-      const raw = value.replace(/\D/g, '').slice(0, 8);
-      if (value.length > 5) {
-        // Provavelmente paste — aceita como digitado (inclui barras)
-        value = value.slice(0, 10);
+      // Extrai só os dígitos (máx 8)
+      const digits = value.replace(/\D/g, '').slice(0, 8);
+      if (digits.length === 8) {
+        // Data completa (colada ou digitada) — formata dd/mm/aaaa
+        value = `${digits.slice(0,2)}/${digits.slice(2,4)}/${digits.slice(4,8)}`;
       } else {
-        // Digitação progressiva com máscara
-        if (raw.length <= 2) value = raw;
-        else if (raw.length <= 4) value = `${raw.slice(0,2)}/${raw.slice(2)}`;
-        else value = `${raw.slice(0,2)}/${raw.slice(2,4)}/${raw.slice(4)}`;
+        // Digitação progressiva com máscara automática
+        if (digits.length <= 2) value = digits;
+        else if (digits.length <= 4) value = `${digits.slice(0,2)}/${digits.slice(2)}`;
+        else value = `${digits.slice(0,2)}/${digits.slice(2,4)}/${digits.slice(4)}`;
       }
     }
     setClientForm(prev => ({ ...prev, [field]: value }));
