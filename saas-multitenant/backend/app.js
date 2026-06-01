@@ -43,7 +43,8 @@ const FRONTEND_URL = process.env.FRONTEND_URL || '';
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
-  ...(FRONTEND_URL ? [FRONTEND_URL] : []),
+  'https://despachantes-new-crm.vercel.app', // fallback Vercel
+  ...(FRONTEND_URL ? [FRONTEND_URL.trim()] : []),
 ];
 
 const corsOptions = {

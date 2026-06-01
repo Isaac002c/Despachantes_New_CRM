@@ -10,7 +10,6 @@ import { getContractsByService, createContract, updateContract, deleteContract }
 
 const SERVICE_TYPES = [
   { value: 'MULTA',           label: 'Auto de Infração' },
-  { value: 'PROCESSO',        label: 'Processo' },
   { value: 'CRCI',            label: 'CRCI' },
   { value: 'SUSPENSAO',       label: 'Suspensão' },
   { value: 'CASSACAO',        label: 'Cassação' },
@@ -67,6 +66,11 @@ const STATUS_OPTIONS_GENERIC = [
   { value: 'CANCELADO',      label: 'Cancelado' },
 ];
 
+const STATUS_OPTIONS_CRCI = [
+  { value: 'EM ANDAMENTO', label: 'Em Andamento' },
+  { value: 'FINALIZADO',   label: 'Finalizado' },
+];
+
 const ORGANS = ['DETRAN', 'DER', 'DNIT', 'SMTR', 'RENAINF', 'PMRJ', 'PREFEITURA UF', 'OUTROS'];
 
 const STATUS_COLORS = {
@@ -88,8 +92,9 @@ const STATUS_COLORS = {
 };
 
 const getStatusOptions = (serviceValue) => {
-  if (serviceValue === 'MULTA')    return STATUS_OPTIONS_MULTA;
-  if (serviceValue === 'PROCESSO') return STATUS_OPTIONS_PROCESSO;
+  if (serviceValue === 'MULTA')                                    return STATUS_OPTIONS_MULTA;
+  if (serviceValue === 'SUSPENSAO' || serviceValue === 'CASSACAO') return STATUS_OPTIONS_PROCESSO;
+  if (serviceValue === 'CRCI')                                     return STATUS_OPTIONS_CRCI;
   return STATUS_OPTIONS_GENERIC;
 };
 
@@ -526,8 +531,9 @@ export default function ClientDetail() {
                       <thead>
                         <tr>
                           {name === 'MULTA' && <><th>Nº Auto de Infração</th><th>Placa</th></>}
-                          {name === 'PROCESSO' && <><th>Tipo/Órgão</th></>}
-                          {name !== 'MULTA' && name !== 'PROCESSO' && <th>Serviço</th>}
+                          {(name === 'SUSPENSAO' || name === 'CASSACAO') && <><th>Nº Processo</th><th>Órgão</th></>}
+                          {name === 'CRCI' && <th>Nº Processo</th>}
+                          {name !== 'MULTA' && name !== 'SUSPENSAO' && name !== 'CASSACAO' && name !== 'CRCI' && <th>Serviço</th>}
                           <th>Andamento</th>
                           <th>Observações</th>
                           <th style={{ width: 80 }}>Ações</th>
@@ -545,10 +551,16 @@ export default function ClientDetail() {
                                 <td>{contract.vehicle_plate || '—'}</td>
                               </>
                             )}
-                            {name === 'PROCESSO' && (
-                              <td>{[contract.infraction_type, contract.organ].filter(Boolean).join(' / ') || '—'}</td>
+                            {(name === 'SUSPENSAO' || name === 'CASSACAO') && (
+                              <>
+                                <td style={{ fontFamily: 'monospace' }}>{contract.numero_multa || '—'}</td>
+                                <td>{contract.organ || '—'}</td>
+                              </>
                             )}
-                            {name !== 'MULTA' && name !== 'PROCESSO' && (
+                            {name === 'CRCI' && (
+                              <td style={{ fontFamily: 'monospace' }}>{contract.numero_multa || '—'}</td>
+                            )}
+                            {name !== 'MULTA' && name !== 'SUSPENSAO' && name !== 'CASSACAO' && name !== 'CRCI' && (
                               <td>{label}</td>
                             )}
                             <td>
@@ -828,16 +840,36 @@ export default function ClientDetail() {
                           </div>
                         </>
                       )}
-                      {name === 'PROCESSO' && (
+                      {(name === 'SUSPENSAO' || name === 'CASSACAO') && (
+                        <>
+                          <div className="form-group">
+                            <label>Nº do Processo</label>
+                            <input
+                              value={contractForm.numero_multa}
+                              onChange={e => setContractForm({ ...contractForm, numero_multa: e.target.value })}
+                              placeholder="Ex.: 0001234-56.2024.1.00.0000"
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label>Órgão</label>
+                            <select
+                              value={contractForm.organ}
+                              onChange={e => setContractForm({ ...contractForm, organ: e.target.value })}
+                            >
+                              <option value="">Selecione...</option>
+                              {ORGANS.map(o => <option key={o} value={o}>{o}</option>)}
+                            </select>
+                          </div>
+                        </>
+                      )}
+                      {name === 'CRCI' && (
                         <div className="form-group">
-                          <label>Órgão / Tipo *</label>
-                          <select
-                            value={contractForm.organ}
-                            onChange={e => setContractForm({ ...contractForm, organ: e.target.value })}
-                          >
-                            <option value="">Selecione...</option>
-                            {ORGANS.map(o => <option key={o} value={o}>{o}</option>)}
-                          </select>
+                          <label>Nº do Processo</label>
+                          <input
+                            value={contractForm.numero_multa}
+                            onChange={e => setContractForm({ ...contractForm, numero_multa: e.target.value })}
+                            placeholder="Ex.: 0001234-56.2024.1.00.0000"
+                          />
                         </div>
                       )}
                       <div className="form-group">
