@@ -18,7 +18,7 @@ const SERVICE_TYPES = [
 ];
 
 const SERVICE_TYPE_IDS = {
-  'MULTA': '2', 'PROCESSO': '6', 'CRCI': '1',
+  'MULTA': '2', 'CRCI': '1',
   'SUSPENSAO': '3', 'CASSACAO': '4', 'REVISAO DE ATOS': '5', 'OUTROS': '7',
 };
 
@@ -40,7 +40,7 @@ const STATUS_OPTIONS_MULTA = [
   { value: 'CANCELADO',               label: 'Cancelado' },
 ];
 
-const STATUS_OPTIONS_PROCESSO = [
+const STATUS_OPTIONS_SUSPENSAO = [
   { value: 'APRS DEFESA PREVIA',      label: 'Defesa Prévia' },
   { value: 'DEFESA PREVIA - ANALISE', label: 'Defesa Prévia — Análise' },
   { value: 'APRS 1 INSTANCIA',        label: '1ª Instância' },
@@ -93,7 +93,7 @@ const STATUS_COLORS = {
 
 const getStatusOptions = (serviceValue) => {
   if (serviceValue === 'MULTA')                                    return STATUS_OPTIONS_MULTA;
-  if (serviceValue === 'SUSPENSAO' || serviceValue === 'CASSACAO') return STATUS_OPTIONS_PROCESSO;
+  if (serviceValue === 'SUSPENSAO' || serviceValue === 'CASSACAO') return STATUS_OPTIONS_SUSPENSAO;
   if (serviceValue === 'CRCI')                                     return STATUS_OPTIONS_CRCI;
   return STATUS_OPTIONS_GENERIC;
 };
