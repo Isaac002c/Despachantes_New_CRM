@@ -117,6 +117,26 @@ const formatDate = (v) => (!v ? '—' : new Date(v).toLocaleDateString('pt-BR'))
 const formatCPF  = (v) => (v ? v.replace(/\D/g, '') || '—' : '—');
 const toInputDate = (v) => (!v ? '' : v.substring(0, 10));
 
+// Converte yyyy-mm-dd → dd/mm/aaaa para exibir no input de texto
+const isoToDisplay = (v) => {
+  if (!v) return '';
+  const s = v.substring(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const [y, m, d] = s.split('-');
+    return `${d}/${m}/${y}`;
+  }
+  return s;
+};
+
+// Converte dd/mm/aaaa (ou variações) → yyyy-mm-dd para salvar no banco
+const displayToIso = (v) => {
+  if (!v || !v.trim()) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v.trim())) return v.trim();
+  const m = v.trim().match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+  if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  return null;
+};
+
 const CLIENT_STATUS_OPTIONS = [
   { value: 'negociacao', label: 'Negociação' },
   { value: 'fechado',    label: 'Fechado' },
@@ -211,10 +231,10 @@ export default function ClientDetail() {
   const startEditClient = () => {
     setClientForm({
       name:       client.name       || '',
-      birth_date: toInputDate(client.birth_date),
+      birth_date: isoToDisplay(client.birth_date),
       cpf:        client.cpf        || '',
       cnh:        client.cnh        || '',
-      first_cnh:  toInputDate(client.first_cnh),
+      first_cnh:  isoToDisplay(client.first_cnh),
       phone:      client.phone      || '',
       email:      client.email      || '',
       address:    client.address    || '',
@@ -228,7 +248,12 @@ export default function ClientDetail() {
     e.preventDefault();
     try {
       setSavingClient(true);
-      await updateClient(client.id, clientForm);
+      const payload = {
+        ...clientForm,
+        birth_date: displayToIso(clientForm.birth_date),
+        first_cnh:  displayToIso(clientForm.first_cnh),
+      };
+      await updateClient(client.id, payload);
       setEditingClientData(false);
       await loadAll();
     } catch (err) {
@@ -240,7 +265,22 @@ export default function ClientDetail() {
 
   const setC = (field) => (e) => {
     let value = e.target.value;
-    if (field === 'cpf') value = value.replace(/\D/g, '').slice(0, 11);
+    if (field === 'cpf') {
+      value = value.replace(/\D/g, '').slice(0, 11);
+    } else if (field === 'birth_date' || field === 'first_cnh') {
+      // Ao colar (>5 chars) aceita dd/mm/aaaa ou yyyy-mm-dd direto
+      // Ao digitar, insere barras automaticamente
+      const raw = value.replace(/\D/g, '').slice(0, 8);
+      if (value.length > 5) {
+        // Provavelmente paste — aceita como digitado (inclui barras)
+        value = value.slice(0, 10);
+      } else {
+        // Digitação progressiva com máscara
+        if (raw.length <= 2) value = raw;
+        else if (raw.length <= 4) value = `${raw.slice(0,2)}/${raw.slice(2)}`;
+        else value = `${raw.slice(0,2)}/${raw.slice(2,4)}/${raw.slice(4)}`;
+      }
+    }
     setClientForm(prev => ({ ...prev, [field]: value }));
   };
 
@@ -703,7 +743,7 @@ export default function ClientDetail() {
                 </div>
                 <div className="form-group">
                   <label>Nascimento</label>
-                  <input type="date" value={clientForm.birth_date} onChange={setC('birth_date')} />
+                  <input type="text" value={clientForm.birth_date} onChange={setC('birth_date')} placeholder="dd/mm/aaaa" maxLength={10} inputMode="numeric" />
                 </div>
               </div>
               <div className="form-row">
@@ -713,7 +753,7 @@ export default function ClientDetail() {
                 </div>
                 <div className="form-group">
                   <label>1ª Habilitação</label>
-                  <input type="date" value={clientForm.first_cnh} onChange={setC('first_cnh')} />
+                  <input type="text" value={clientForm.first_cnh} onChange={setC('first_cnh')} placeholder="dd/mm/aaaa" maxLength={10} inputMode="numeric" />
                 </div>
               </div>
               <div className="form-row">
