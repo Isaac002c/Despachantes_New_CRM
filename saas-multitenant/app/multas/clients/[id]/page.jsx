@@ -24,11 +24,11 @@ const SERVICE_TYPE_IDS = {
 
 // Status disponíveis por tipo de serviço
 const STATUS_OPTIONS_MULTA = [
-  { value: 'APRS DEFESA PREVIA',      label: 'Defesa Prévia' },
+  { value: 'APRS DEFESA PREVIA',      label: 'APRs — Defesa Prévia' },
   { value: 'DEFESA PREVIA - ANALISE', label: 'Defesa Prévia — Análise' },
-  { value: 'APRS 1 INSTANCIA',        label: '1ª Instância' },
+  { value: 'APRS 1 INSTANCIA',        label: 'APRs — 1ª Instância' },
   { value: '1 INSTANCIA - ANALISE',   label: '1ª Instância — Análise' },
-  { value: 'APRS 2 INSTANCIA',        label: '2ª Instância' },
+  { value: 'APRS 2 INSTANCIA',        label: 'APRs — 2ª Instância' },
   { value: '2 INSTANCIA - ANALISE',   label: '2ª Instância — Análise' },
   { value: 'MANDATORIA',              label: 'Mandatória' },
   { value: 'EXCESSO DE PONTOS',       label: 'Excesso de Pontos' },
@@ -41,11 +41,11 @@ const STATUS_OPTIONS_MULTA = [
 ];
 
 const STATUS_OPTIONS_SUSPENSAO = [
-  { value: 'APRS DEFESA PREVIA',      label: 'Defesa Prévia' },
+  { value: 'APRS DEFESA PREVIA',      label: 'APRs — Defesa Prévia' },
   { value: 'DEFESA PREVIA - ANALISE', label: 'Defesa Prévia — Análise' },
-  { value: 'APRS 1 INSTANCIA',        label: '1ª Instância' },
+  { value: 'APRS 1 INSTANCIA',        label: 'APRs — 1ª Instância' },
   { value: '1 INSTANCIA - ANALISE',   label: '1ª Instância — Análise' },
-  { value: 'APRS 2 INSTANCIA',        label: '2ª Instância' },
+  { value: 'APRS 2 INSTANCIA',        label: 'APRs — 2ª Instância' },
   { value: '2 INSTANCIA - ANALISE',   label: '2ª Instância — Análise' },
   { value: 'MANDATORIA',              label: 'Mandatória' },
   { value: 'EXCESSO DE PONTOS',       label: 'Excesso de Pontos' },
@@ -117,7 +117,23 @@ const formatDate = (v) => (!v ? '—' : new Date(v).toLocaleDateString('pt-BR'))
 const formatCPF  = (v) => (v ? v.replace(/\D/g, '') || '—' : '—');
 const toInputDate = (v) => (!v ? '' : v.substring(0, 10));
 
-// Converte yyyy-mm-dd → dd/mm/aaaa para exibir no input de texto
+// Normaliza qualquer formato de data para dd/mm/aaaa (usado no onChange)
+const normalizeDate = (v) => {
+  if (!v) return '';
+  const s = v.trim();
+  // ISO yyyy-mm-dd (vindo do banco ou colado)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const [y, m, d] = s.split('-');
+    return `${d}/${m}/${y}`;
+  }
+  const digits = s.replace(/\D/g, '').slice(0, 8);
+  if (digits.length === 8) return `${digits.slice(0,2)}/${digits.slice(2,4)}/${digits.slice(4)}`;
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0,2)}/${digits.slice(2)}`;
+  return `${digits.slice(0,2)}/${digits.slice(2,4)}/${digits.slice(4)}`;
+};
+
+// Converte dd/mm/aaaa → yyyy-mm-dd para exibir no input ao carregar
 const isoToDisplay = (v) => {
   if (!v) return '';
   const s = v.substring(0, 10);
@@ -273,6 +289,8 @@ export default function ClientDetail() {
     let value = e.target.value;
     if (field === 'cpf') {
       value = value.replace(/\D/g, '').slice(0, 11);
+    } else if (field === 'birth_date' || field === 'first_cnh') {
+      value = normalizeDate(value);
     }
     setClientForm(prev => ({ ...prev, [field]: value }));
   };

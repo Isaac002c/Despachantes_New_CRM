@@ -17,8 +17,22 @@ const COLUMNS = [
     desc:  'Novos contatos',
   },
   {
+    key:   'possui_defensor',
+    label: 'Já Possui Defensor',
+    color: '#8b5cf6',
+    bg:    '#ede9fe',
+    desc:  'Já tem advogado',
+  },
+  {
+    key:   'nao_quer_defender',
+    label: 'Não Quer se Defender',
+    color: '#f59e0b',
+    bg:    '#fef3c7',
+    desc:  'Não tem interesse',
+  },
+  {
     key:   'negociacao',
-    label: 'Negociação',
+    label: 'Em Negociação',
     color: '#3b82f6',
     bg:    '#eff6ff',
     desc:  'Em tratativa',
@@ -29,13 +43,6 @@ const COLUMNS = [
     color: '#751518',
     bg:    'rgba(117,21,24,0.06)',
     desc:  'Contrato assinado',
-  },
-  {
-    key:   'perdido',
-    label: 'Perdido',
-    color: '#94a3b8',
-    bg:    '#f8fafc',
-    desc:  'Não convertido',
   },
 ];
 
@@ -73,6 +80,7 @@ export default function MultasLeads() {
   const [saving, setSaving]       = useState(false);
   const [selectedLead, setSelectedLead] = useState(null); // painel lateral
   const [dragOver, setDragOver]   = useState(null);
+  const [searchName, setSearchName] = useState('');
 
   useEffect(() => { load(); }, []);
 
@@ -89,7 +97,10 @@ export default function MultasLeads() {
     }
   };
 
-  const leadsByColumn = (key) => leads.filter(l => l.status === key);
+  const leadsByColumn = (key) => leads.filter(l =>
+    l.status === key &&
+    (!searchName || l.name?.toLowerCase().includes(searchName.toLowerCase()))
+  );
 
   // ── Formulário ─────────────────────────────────────────────────
 
@@ -193,9 +204,32 @@ export default function MultasLeads() {
           <h2 className="leads-title">Leads — Captação</h2>
           <p className="leads-sub">{leads.length} lead{leads.length !== 1 ? 's' : ''} no total</p>
         </div>
-        <button className="btn-primary leads-new-btn" onClick={() => openNew()}>
-          <PlusIcon /> Novo Lead
-        </button>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div style={{ position: 'relative' }}>
+            <svg
+              width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="#94a3b8" strokeWidth="2"
+              style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
+            >
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input
+              type="text"
+              placeholder="Buscar por nome..."
+              value={searchName}
+              onChange={(e) => setSearchName(e.target.value)}
+              style={{
+                paddingLeft: 34, paddingRight: 12, paddingTop: 8, paddingBottom: 8,
+                border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13,
+                outline: 'none', background: '#fff', width: 200,
+                color: '#0f172a',
+              }}
+            />
+          </div>
+          <button className="btn-primary leads-new-btn" onClick={() => openNew()}>
+            <PlusIcon /> Novo Lead
+          </button>
+        </div>
       </div>
 
       {error && (

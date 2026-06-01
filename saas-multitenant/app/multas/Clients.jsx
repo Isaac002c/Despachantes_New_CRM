@@ -6,6 +6,20 @@ import { getClients, createClient, updateClient, deleteClient, searchClients } f
 
 const toInputDate = (value) => (!value ? '' : value.substring(0, 10));
 
+const normalizeDate = (v) => {
+  if (!v) return '';
+  const s = v.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const [y, m, d] = s.split('-');
+    return `${d}/${m}/${y}`;
+  }
+  const digits = s.replace(/\D/g, '').slice(0, 8);
+  if (digits.length === 8) return `${digits.slice(0,2)}/${digits.slice(2,4)}/${digits.slice(4)}`;
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0,2)}/${digits.slice(2)}`;
+  return `${digits.slice(0,2)}/${digits.slice(2,4)}/${digits.slice(4)}`;
+};
+
 const isoToDisplay = (v) => {
   if (!v) return '';
   const s = v.substring(0, 10);
@@ -187,8 +201,9 @@ export default function MultasClients() {
 
   const set = (field) => (e) => {
     let value = e.target.value;
-    if (field === 'cpf')   value = value.replace(/\D/g, '').slice(0, 11); // só dígitos, max 11
+    if (field === 'cpf')   value = value.replace(/\D/g, '').slice(0, 11);
     if (field === 'phone') value = maskPhone(value);
+    if (field === 'birth_date' || field === 'first_cnh') value = normalizeDate(value);
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -315,7 +330,7 @@ export default function MultasClients() {
                 </td>
                 <td style={{ color: '#475569', fontFamily: 'monospace', fontSize: 13 }}>{formatCPF(client.cpf)}</td>
                 <td style={{ color: '#475569' }}>{client.cnh || '—'}</td>
-                <td style={{ color: '#475569' }}>{formatPhone(client.phone)}</td>
+                <td style={{ color: '#475569', whiteSpace: 'nowrap' }}>{formatPhone(client.phone)}</td>
                 <td style={{ color: '#475569' }}>{client.email || '—'}</td>
                 <td>
                   <span className={`client-status-badge ${client.status || 'negociacao'}`}>

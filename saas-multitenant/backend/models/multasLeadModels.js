@@ -1,6 +1,6 @@
 const pool = require('../config/db');
 
-const VALID_STATUSES = ['entrada', 'negociacao', 'fechado', 'perdido'];
+const VALID_STATUSES = ['entrada', 'possui_defensor', 'nao_quer_defender', 'negociacao', 'fechado', 'perdido'];
 
 // CREATE
 const createMultasLead = async ({
