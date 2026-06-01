@@ -5418,10 +5418,15 @@ html, body {
 }
 
 .kanban-board {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 14px;
   align-items: start;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding-bottom: 12px;
+  min-width: 0;
 }
 
 .kanban-col {
@@ -5432,6 +5437,8 @@ html, body {
   min-height: 200px;
   display: flex;
   flex-direction: column;
+  flex: 0 0 260px;
+  width: 260px;
 }
 
 .kanban-col.drag-over {
@@ -5688,16 +5695,7 @@ html, body {
   margin-top: auto;
 }
 
-@media (max-width: 1024px) {
-  .kanban-board {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
 @media (max-width: 600px) {
-  .kanban-board {
-    grid-template-columns: 1fr;
-  }
   .lead-panel {
     width: 100%;
   }
