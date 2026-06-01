@@ -47,14 +47,17 @@ const STATUS_OPTIONS_SUSPENSAO = [
   { value: '1 INSTANCIA - ANALISE',   label: '1ª Instância — Análise' },
   { value: 'APRS 2 INSTANCIA',        label: 'APRs — 2ª Instância' },
   { value: '2 INSTANCIA - ANALISE',   label: '2ª Instância — Análise' },
-  { value: 'MANDATORIA',              label: 'Mandatória' },
-  { value: 'EXCESSO DE PONTOS',       label: 'Excesso de Pontos' },
   { value: 'PROTOCOLADO',             label: 'Protocolado' },
   { value: 'DEFERIDO',                label: 'Deferido' },
   { value: 'INDEFERIDO',              label: 'Indeferido' },
   { value: 'TRANSITO EM JULGADO',     label: 'Trânsito em Julgado' },
   { value: 'FINALIZADO',              label: 'Finalizado' },
   { value: 'CANCELADO',               label: 'Cancelado' },
+];
+
+const TIPO_SUSPENSAO_OPTIONS = [
+  { value: 'EXCESSO DE PONTOS', label: 'Excesso de Pontos' },
+  { value: 'MANDATORIA',        label: 'Mandatória' },
 ];
 
 const STATUS_OPTIONS_GENERIC = [
@@ -166,6 +169,7 @@ const CLIENT_STATUS_OPTIONS = [
 
 const EMPTY_CONTRACT = {
   numero_multa: '', vehicle_plate: '', organ: '', status: '', notes: '',
+  infraction_type: '',
   // Protocolo
   protocol_number: '', protocol_date: '', protocol_status: '', protocol_notes: '',
 };
@@ -321,11 +325,17 @@ export default function ClientDetail() {
     setSelectedService(service);
     setEditingContract(contract);
     setContractForm(contract ? {
-      numero_multa:  contract.numero_multa  || '',
-      vehicle_plate: contract.vehicle_plate || '',
-      organ:         contract.organ         || '',
-      status:        contract.status        || '',
-      notes:         contract.notes         || '',
+      numero_multa:    contract.numero_multa    || '',
+      vehicle_plate:   contract.vehicle_plate   || '',
+      organ:           contract.organ           || '',
+      status:          contract.status          || '',
+      notes:           contract.notes           || '',
+      infraction_type: contract.infraction_type || '',
+      // Protocolo
+      protocol_number: contract.protocol_number || '',
+      protocol_date:   contract.protocol_date   ? contract.protocol_date.substring(0, 10) : '',
+      protocol_status: contract.protocol_status || '',
+      protocol_notes:  contract.protocol_notes  || '',
     } : EMPTY_CONTRACT);
     setShowContractModal(true);
   };
@@ -337,13 +347,14 @@ export default function ClientDetail() {
     if (name === 'MULTA' && !contractForm.numero_multa) { setError('Informe o número do Auto de Infração'); return; }
 
     const payload = {
-      client_id:     clientId,
-      service_id:    selectedService.id,
-      numero_multa:  contractForm.numero_multa  || null,
-      vehicle_plate: contractForm.vehicle_plate || null,
-      organ:         contractForm.organ         || 'DETRAN',
-      status:        contractForm.status,
-      notes:         contractForm.notes         || null,
+      client_id:       clientId,
+      service_id:      selectedService.id,
+      numero_multa:    contractForm.numero_multa    || null,
+      vehicle_plate:   contractForm.vehicle_plate   || null,
+      organ:           contractForm.organ           || 'DETRAN',
+      status:          contractForm.status,
+      notes:           contractForm.notes           || null,
+      infraction_type: contractForm.infraction_type || null,
     };
 
     try {
@@ -911,6 +922,21 @@ export default function ClientDetail() {
                               {ORGANS.map(o => <option key={o} value={o}>{o}</option>)}
                             </select>
                           </div>
+                          {name === 'SUSPENSAO' && (
+                            <div className="form-group">
+                              <label>Tipo de Suspensão *</label>
+                              <select
+                                value={contractForm.infraction_type}
+                                onChange={e => setContractForm({ ...contractForm, infraction_type: e.target.value })}
+                                required
+                              >
+                                <option value="">Selecione o tipo...</option>
+                                {TIPO_SUSPENSAO_OPTIONS.map(o => (
+                                  <option key={o.value} value={o.value}>{o.label}</option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
                         </>
                       )}
                       {name === 'CRCI' && (
