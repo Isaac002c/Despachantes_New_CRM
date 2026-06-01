@@ -273,18 +273,6 @@ export default function ClientDetail() {
     let value = e.target.value;
     if (field === 'cpf') {
       value = value.replace(/\D/g, '').slice(0, 11);
-    } else if (field === 'birth_date' || field === 'first_cnh') {
-      // Extrai só os dígitos (máx 8)
-      const digits = value.replace(/\D/g, '').slice(0, 8);
-      if (digits.length === 8) {
-        // Data completa (colada ou digitada) — formata dd/mm/aaaa
-        value = `${digits.slice(0,2)}/${digits.slice(2,4)}/${digits.slice(4,8)}`;
-      } else {
-        // Digitação progressiva com máscara automática
-        if (digits.length <= 2) value = digits;
-        else if (digits.length <= 4) value = `${digits.slice(0,2)}/${digits.slice(2)}`;
-        else value = `${digits.slice(0,2)}/${digits.slice(2,4)}/${digits.slice(4)}`;
-      }
     }
     setClientForm(prev => ({ ...prev, [field]: value }));
   };
@@ -748,7 +736,7 @@ export default function ClientDetail() {
                 </div>
                 <div className="form-group">
                   <label>Nascimento</label>
-                  <input type="text" value={clientForm.birth_date} onChange={setC('birth_date')} placeholder="dd/mm/aaaa" maxLength={10} inputMode="numeric" />
+                  <input type="text" value={clientForm.birth_date} onChange={setC('birth_date')} placeholder="ex: 11/09/2006 ou 11092006" />
                 </div>
               </div>
               <div className="form-row">
@@ -758,7 +746,7 @@ export default function ClientDetail() {
                 </div>
                 <div className="form-group">
                   <label>1ª Habilitação</label>
-                  <input type="text" value={clientForm.first_cnh} onChange={setC('first_cnh')} placeholder="dd/mm/aaaa" maxLength={10} inputMode="numeric" />
+                  <input type="text" value={clientForm.first_cnh} onChange={setC('first_cnh')} placeholder="ex: 11/09/2006 ou 11092006" />
                 </div>
               </div>
               <div className="form-row">
