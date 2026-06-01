@@ -6,6 +6,27 @@ import { getClients, createClient, updateClient, deleteClient, searchClients } f
 
 const toInputDate = (value) => (!value ? '' : value.substring(0, 10));
 
+const isoToDisplay = (v) => {
+  if (!v) return '';
+  const s = v.substring(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const [y, m, d] = s.split('-');
+    return `${d}/${m}/${y}`;
+  }
+  return s;
+};
+
+const displayToIso = (v) => {
+  if (!v || !v.trim()) return null;
+  const s = v.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const mSep = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+  if (mSep) return `${mSep[3]}-${mSep[2].padStart(2,'0')}-${mSep[1].padStart(2,'0')}`;
+  const mRaw = s.match(/^(\d{2})(\d{2})(\d{4})$/);
+  if (mRaw) return `${mRaw[3]}-${mRaw[2]}-${mRaw[1]}`;
+  return null;
+};
+
 const CLIENT_STATUS_OPTIONS = [
   { value: 'negociacao', label: 'Negociação' },
   { value: 'fechado',    label: 'Fechado' },
@@ -101,10 +122,15 @@ export default function MultasClients() {
     if (validationError) { setFormError(validationError); return; }
     try {
       setSaving(true);
+      const payload = {
+        ...formData,
+        birth_date: displayToIso(formData.birth_date),
+        first_cnh:  displayToIso(formData.first_cnh),
+      };
       if (editingClient) {
-        await updateClient(editingClient.id, formData);
+        await updateClient(editingClient.id, payload);
       } else {
-        await createClient(formData);
+        await createClient(payload);
       }
       setShowModal(false);
       setEditingClient(null);
@@ -129,10 +155,10 @@ export default function MultasClients() {
     setEditingClient(client);
     setFormData({
       name:       client.name       || '',
-      birth_date: toInputDate(client.birth_date),
+      birth_date: isoToDisplay(client.birth_date),
       cpf:        client.cpf        || '',
       cnh:        client.cnh        || '',
-      first_cnh:  toInputDate(client.first_cnh),
+      first_cnh:  isoToDisplay(client.first_cnh),
       phone:      client.phone      || '',
       email:      client.email      || '',
       address:    client.address    || '',
@@ -370,7 +396,7 @@ export default function MultasClients() {
                 </div>
                 <div className="form-group">
                   <label>Data de Nascimento</label>
-                  <input type="date" value={formData.birth_date} onChange={set('birth_date')} />
+                  <input type="text" value={formData.birth_date} onChange={set('birth_date')} placeholder="ex: 11092006 ou 11/09/2006" />
                 </div>
               </div>
 
@@ -387,7 +413,7 @@ export default function MultasClients() {
                 </div>
                 <div className="form-group">
                   <label>1ª Habilitação</label>
-                  <input type="date" value={formData.first_cnh} onChange={set('first_cnh')} />
+                  <input type="text" value={formData.first_cnh} onChange={set('first_cnh')} placeholder="ex: 11092006 ou 11/09/2006" />
                 </div>
               </div>
 
