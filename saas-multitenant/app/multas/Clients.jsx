@@ -22,21 +22,10 @@ const EMPTY_FORM = {
   notes: '', status: 'negociacao',
 };
 
-// Formata CPF para exibição na tabela: 000.000.000-00
+// Exibe CPF como somente números na tabela
 const formatCPF = (cpf) => {
   if (!cpf) return '—';
-  const digits = cpf.replace(/\D/g, '');
-  if (digits.length !== 11) return cpf;
-  return digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-};
-
-// Aplica máscara CPF durante digitação
-const maskCPF = (value) => {
-  const d = value.replace(/\D/g, '').slice(0, 11);
-  if (d.length <= 3) return d;
-  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
-  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
-  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+  return cpf.replace(/\D/g, '') || '—';
 };
 
 // Aplica máscara de telefone durante digitação
@@ -50,21 +39,6 @@ const maskPhone = (value) => {
 
 const formatPhone = (phone) => phone || '—';
 
-// Valida CPF (dígitos verificadores)
-const isValidCPF = (cpf) => {
-  const d = cpf.replace(/\D/g, '');
-  if (d.length !== 11 || /^(\d)\1+$/.test(d)) return false;
-  let sum = 0;
-  for (let i = 0; i < 9; i++) sum += parseInt(d[i]) * (10 - i);
-  let r = (sum * 10) % 11;
-  if (r === 10 || r === 11) r = 0;
-  if (r !== parseInt(d[9])) return false;
-  sum = 0;
-  for (let i = 0; i < 10; i++) sum += parseInt(d[i]) * (11 - i);
-  r = (sum * 10) % 11;
-  if (r === 10 || r === 11) r = 0;
-  return r === parseInt(d[10]);
-};
 
 export default function MultasClients() {
   const router = useRouter();
@@ -113,7 +87,6 @@ export default function MultasClients() {
     if (formData.cpf) {
       const digits = formData.cpf.replace(/\D/g, '');
       if (digits.length > 0 && digits.length !== 11) return 'CPF deve ter 11 dígitos.';
-      if (digits.length === 11 && !isValidCPF(formData.cpf)) return 'CPF inválido.';
     }
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       return 'E-mail inválido.';
@@ -188,7 +161,7 @@ export default function MultasClients() {
 
   const set = (field) => (e) => {
     let value = e.target.value;
-    if (field === 'cpf')   value = maskCPF(value);
+    if (field === 'cpf')   value = value.replace(/\D/g, '').slice(0, 11); // só dígitos, max 11
     if (field === 'phone') value = maskPhone(value);
     setFormData(prev => ({ ...prev, [field]: value }));
   };
@@ -390,8 +363,9 @@ export default function MultasClients() {
                     type="text"
                     value={formData.cpf}
                     onChange={set('cpf')}
-                    maxLength={14}
-                    placeholder="000.000.000-00"
+                    maxLength={11}
+                    placeholder="00000000000"
+                    inputMode="numeric"
                   />
                 </div>
                 <div className="form-group">

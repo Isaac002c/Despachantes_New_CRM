@@ -109,7 +109,7 @@ const getServiceLabel = (value) =>
 // ─── Helpers ─────────────────────────────────────────
 
 const formatDate = (v) => (!v ? '—' : new Date(v).toLocaleDateString('pt-BR'));
-const formatCPF  = (v) => (v ? v.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/g, '$1.$2.$3-$4') : '—');
+const formatCPF  = (v) => (v ? v.replace(/\D/g, '') || '—' : '—');
 const toInputDate = (v) => (!v ? '' : v.substring(0, 10));
 
 const CLIENT_STATUS_OPTIONS = [
@@ -233,7 +233,11 @@ export default function ClientDetail() {
     }
   };
 
-  const setC = (field) => (e) => setClientForm(prev => ({ ...prev, [field]: e.target.value }));
+  const setC = (field) => (e) => {
+    let value = e.target.value;
+    if (field === 'cpf') value = value.replace(/\D/g, '').slice(0, 11);
+    setClientForm(prev => ({ ...prev, [field]: value }));
+  };
 
   // ── Serviços ────────────────────────────────────
 
@@ -683,7 +687,7 @@ export default function ClientDetail() {
               <div className="form-row">
                 <div className="form-group">
                   <label>CPF</label>
-                  <input type="text" value={clientForm.cpf} onChange={setC('cpf')} maxLength={14} />
+                  <input type="text" value={clientForm.cpf} onChange={setC('cpf')} maxLength={11} placeholder="00000000000" inputMode="numeric" />
                 </div>
                 <div className="form-group">
                   <label>Nascimento</label>
