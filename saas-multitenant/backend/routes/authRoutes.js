@@ -35,7 +35,7 @@ router.post('/register',
   [
     body('tenantName').notEmpty().trim().escape(),
     body('name').notEmpty().trim().escape(),
-    body('email').isEmail().normalizeEmail(),
+    body('email').isEmail().normalizeEmail({ gmail_remove_dots: false }),
     body('password').isLength({ min: 6 }),
   ],
   async (req, res) => {
@@ -79,7 +79,7 @@ router.post('/register',
 router.post('/login',
   loginLimiter,
   [
-    body('email').isEmail().normalizeEmail(),
+    body('email').isEmail().normalizeEmail({ gmail_remove_dots: false }),
     body('password').isLength({ min: 6 }).trim(),
   ],
   async (req, res) => {

@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 
 // Em desenvolvimento: proxy para localhost:5000
-// Em produção: proxy para o backend no Render
+// Em produção (Vercel): defina BACKEND_URL=https://api-despachante.chronostek.com.br
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
 
 const nextConfig = {
@@ -38,7 +38,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https:",
               "font-src 'self' data:",
-              "connect-src 'self' http://localhost:5000 https://chronostechcrm.onrender.com",
+              "connect-src 'self' http://localhost:5000",
               "frame-ancestors 'none'",
               "object-src 'none'",
             ].join('; '),

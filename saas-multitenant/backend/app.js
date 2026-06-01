@@ -29,6 +29,10 @@ const multasLeadsRoutes = require('./routes/multasLeadsRoutes');
 
 const app = express();
 
+// Confia no proxy reverso (Nginx) para X-Forwarded-For e X-Forwarded-Proto
+// Necessário para rate-limit e cookies secure funcionarem corretamente atrás do Nginx
+app.set('trust proxy', 1);
+
 // ============================================
 // CORS
 // ============================================

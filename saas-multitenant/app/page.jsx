@@ -7,8 +7,12 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    // Verificar se está logado
-    const token = document.cookie.includes('auth-token');
+    // Verifica localStorage primeiro (token salvo pelo login/page.jsx).
+    // Cookie httpOnly não chega ao browser quando Next.js faz proxy server-side.
+    const token =
+      localStorage.getItem('token') ||
+      localStorage.getItem('auth-token') ||
+      document.cookie.includes('auth-token');
     if (token) {
       router.push('/dashboard');
     } else {
