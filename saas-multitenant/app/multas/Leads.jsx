@@ -51,9 +51,16 @@ const SOURCE_OPTIONS = [
   'Facebook', 'Telefone', 'Presencial', 'Outros',
 ];
 
+const BLOCKED_STATUSES = ['possui_defensor', 'nao_quer_defender'];
+
+const MOTIVO_LABELS = {
+  possui_defensor:   'Nome / Contato do Defensor',
+  nao_quer_defender: 'Motivo de Não Querer se Defender',
+};
+
 const EMPTY_FORM = {
   name: '', cpf: '', cnh: '', first_license_date: '',
-  birth_date: '', phone: '', source: '', status: 'entrada', notes: '',
+  birth_date: '', phone: '', source: '', status: 'entrada', notes: '', motivo: '',
 };
 
 const toInputDate = (v) => (!v ? '' : v.substring(0, 10));
@@ -122,6 +129,7 @@ export default function MultasLeads() {
       source:             lead.source             || '',
       status:             lead.status             || 'entrada',
       notes:              lead.notes              || '',
+      motivo:             lead.motivo             || '',
     });
     setShowModal(true);
     setSelectedLead(null);
@@ -311,6 +319,14 @@ export default function MultasLeads() {
                         {lead.created_by_name}
                       </div>
                     )}
+                    {BLOCKED_STATUSES.includes(lead.status) && lead.motivo && (
+                      <div className="kanban-card-meta" style={{ color: col.color, fontStyle: 'italic', marginTop: 4, borderTop: `1px solid ${col.color}22`, paddingTop: 4 }}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                        </svg>
+                        {lead.motivo}
+                      </div>
+                    )}
                     <div className="kanban-card-date">
                       {new Date(lead.created_at).toLocaleDateString('pt-BR')}
                     </div>
@@ -359,6 +375,16 @@ export default function MultasLeads() {
                 <div className="lead-panel-field" style={{ gridColumn: '1/-1' }}>
                   <span className="lead-panel-field-label">Observações</span>
                   <span className="lead-panel-field-value" style={{ fontStyle: 'italic', color: '#64748b' }}>{selectedLead.notes}</span>
+                </div>
+              )}
+              {BLOCKED_STATUSES.includes(selectedLead.status) && (
+                <div className="lead-panel-field" style={{ gridColumn: '1/-1' }}>
+                  <span className="lead-panel-field-label" style={{ color: COLUMNS.find(c => c.key === selectedLead.status)?.color }}>
+                    {MOTIVO_LABELS[selectedLead.status]}
+                  </span>
+                  <span className="lead-panel-field-value" style={{ fontStyle: selectedLead.motivo ? 'normal' : 'italic', color: selectedLead.motivo ? '#0f172a' : '#94a3b8' }}>
+                    {selectedLead.motivo || 'Não informado'}
+                  </span>
                 </div>
               )}
             </div>
@@ -467,9 +493,23 @@ export default function MultasLeads() {
                   {COLUMNS.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
                 </select>
               </div>
+              {BLOCKED_STATUSES.includes(formData.status) && (
+                <div className="form-group" style={{ background: COLUMNS.find(c=>c.key===formData.status)?.bg || '#f8fafc', borderRadius: 8, padding: '10px 12px', border: `1px solid ${COLUMNS.find(c=>c.key===formData.status)?.color || '#e2e8f0'}33` }}>
+                  <label style={{ color: COLUMNS.find(c=>c.key===formData.status)?.color }}>
+                    {MOTIVO_LABELS[formData.status]} *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.motivo}
+                    onChange={set('motivo')}
+                    placeholder={formData.status === 'possui_defensor' ? 'Ex.: Dr. João Silva — (21) 99999-0000' : 'Ex.: Não quer gastar dinheiro no momento'}
+                    required={BLOCKED_STATUSES.includes(formData.status)}
+                  />
+                </div>
+              )}
               <div className="form-group">
                 <label>Observações</label>
-                <textarea value={formData.notes} onChange={set('notes')} rows={3} placeholder="Informações adicionais..." />
+                <textarea value={formData.notes} onChange={set('notes')} rows={2} placeholder="Informações adicionais..." />
               </div>
               <div className="form-actions">
                 <button type="button" onClick={() => setShowModal(false)} className="btn-secondary">Cancelar</button>

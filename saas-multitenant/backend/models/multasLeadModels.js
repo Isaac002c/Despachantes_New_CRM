@@ -5,7 +5,7 @@ const VALID_STATUSES = ['entrada', 'possui_defensor', 'nao_quer_defender', 'nego
 // CREATE
 const createMultasLead = async ({
   tenant_id, name, cpf, cnh, first_license_date, birth_date,
-  phone, source, status, created_by, created_by_name, notes
+  phone, source, status, created_by, created_by_name, notes, motivo
 }) => {
   if (!tenant_id) throw new Error('tenant_id é obrigatório');
   if (!name)      throw new Error('name é obrigatório');
@@ -13,8 +13,8 @@ const createMultasLead = async ({
   const result = await pool.query(
     `INSERT INTO multas_leads
        (tenant_id, name, cpf, cnh, first_license_date, birth_date,
-        phone, source, status, created_by, created_by_name, notes)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+        phone, source, status, created_by, created_by_name, notes, motivo)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
      RETURNING *`,
     [
       tenant_id, name,
@@ -28,6 +28,7 @@ const createMultasLead = async ({
       created_by      || null,
       created_by_name || null,
       notes           || null,
+      motivo          || null,
     ]
   );
   return result.rows[0];
@@ -86,13 +87,13 @@ const countMultasLeadsByStatus = async (tenant_id) => {
 // UPDATE
 const updateMultasLead = async (id, {
   name, cpf, cnh, first_license_date, birth_date,
-  phone, source, status, notes
+  phone, source, status, notes, motivo
 }, tenant_id) => {
   const result = await pool.query(
     `UPDATE multas_leads
      SET name = $1, cpf = $2, cnh = $3, first_license_date = $4, birth_date = $5,
-         phone = $6, source = $7, status = $8, notes = $9, updated_at = NOW()
-     WHERE id = $10 AND tenant_id = $11
+         phone = $6, source = $7, status = $8, notes = $9, motivo = $10, updated_at = NOW()
+     WHERE id = $11 AND tenant_id = $12
      RETURNING *`,
     [
       name,
@@ -104,6 +105,7 @@ const updateMultasLead = async (id, {
       source          || null,
       VALID_STATUSES.includes(status) ? status : 'entrada',
       notes           || null,
+      motivo          || null,
       id, tenant_id,
     ]
   );

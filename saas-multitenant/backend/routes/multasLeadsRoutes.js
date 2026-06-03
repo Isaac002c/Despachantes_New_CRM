@@ -48,7 +48,7 @@ router.post('/', async (req, res) => {
   try {
     const {
       name, cpf, cnh, first_license_date, birth_date,
-      phone, source, status, notes
+      phone, source, status, notes, motivo
     } = req.body;
 
     // Pega o usuário logado como created_by
@@ -60,7 +60,7 @@ router.post('/', async (req, res) => {
       name, cpf, cnh,
       first_license_date,
       birth_date,
-      phone, source, status, notes,
+      phone, source, status, notes, motivo,
       created_by:        userId,
       created_by_name:   userName,
     });
