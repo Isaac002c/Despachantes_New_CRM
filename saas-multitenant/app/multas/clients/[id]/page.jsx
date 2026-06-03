@@ -3,8 +3,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { getClientById, updateClient } from '../../../lib/clientsAPI';
-import { getServicesByClient, deleteService } from '../../../lib/servicesAPI';
-import { getContractsByService, createContract, updateContract, deleteContract } from '../../../lib/contractsAPI';
+import { getServicesByClient, deleteService, getServiceTypes } from '../../../lib/servicesAPI';
+import { getContractsByService, createContract, updateContract, deleteContract, patchContractProtocol } from '../../../lib/contractsAPI';
+import { getDocumentsByClient, createDocument, deleteDocument } from '../../../lib/documentsAPI';
+import { uploadFile } from '../../../lib/uploadsAPI';
 
 // ─── Constantes de negócio ────────────────────────────
 
@@ -14,9 +16,11 @@ const SERVICE_TYPES = [
   { value: 'SUSPENSAO',       label: 'Suspensão' },
   { value: 'CASSACAO',        label: 'Cassação' },
   { value: 'REVISAO DE ATOS', label: 'Revisão de Atos' },
+  { value: 'TRI',             label: 'TRI — Troca de Real Infrator' },
   { value: 'OUTROS',          label: 'Outros' },
 ];
 
+// Fallback de IDs (usado apenas se a API /services/types falhar)
 const SERVICE_TYPE_IDS = {
   'MULTA': '2', 'CRCI': '1',
   'SUSPENSAO': '3', 'CASSACAO': '4', 'REVISAO DE ATOS': '5', 'OUTROS': '7',
@@ -98,6 +102,7 @@ const getStatusOptions = (serviceValue) => {
   if (serviceValue === 'MULTA')                                    return STATUS_OPTIONS_MULTA;
   if (serviceValue === 'SUSPENSAO' || serviceValue === 'CASSACAO') return STATUS_OPTIONS_SUSPENSAO;
   if (serviceValue === 'CRCI')                                     return STATUS_OPTIONS_CRCI;
+  if (serviceValue === 'TRI')                                      return STATUS_OPTIONS_GENERIC;
   return STATUS_OPTIONS_GENERIC;
 };
 
@@ -113,6 +118,14 @@ const getStatusLabel = (status) => {
 
 const getServiceLabel = (value) =>
   SERVICE_TYPES.find(t => t.value === value?.toUpperCase())?.label || value || '—';
+
+const getPrazoStyle = (due_date) => {
+  if (!due_date) return { color: '#94a3b8' };
+  const diffDays = Math.ceil((new Date(due_date) - new Date()) / 86400000);
+  if (diffDays < 0)  return { color: '#ef4444', fontWeight: 600 };
+  if (diffDays <= 7) return { color: '#f59e0b', fontWeight: 600 };
+  return { color: '#16a34a' };
+};
 
 // ─── Helpers ─────────────────────────────────────────
 
@@ -170,8 +183,9 @@ const CLIENT_STATUS_OPTIONS = [
 const EMPTY_CONTRACT = {
   numero_multa: '', vehicle_plate: '', organ: '', status: '', notes: '',
   infraction_type: '',
-  // Protocolo
+  due_date: '',
   protocol_number: '', protocol_date: '', protocol_status: '', protocol_notes: '',
+  protocol_file_url: '',
 };
 
 const PROTOCOL_STATUS_OPTIONS = [
@@ -210,11 +224,16 @@ export default function ClientDetail() {
   const [contractForm, setContractForm]           = useState(EMPTY_CONTRACT);
   const [savingContract, setSavingContract]       = useState(false);
 
+  // Tipos de serviço (carregado da API)
+  const [serviceTypesData, setServiceTypesData] = useState([]);
+
   // Documentos do cliente
   const [clientDocs, setClientDocs]         = useState([]);
   const [showDocModal, setShowDocModal]     = useState(false);
   const [docForm, setDocForm]               = useState({ name: '', type: '', description: '' });
+  const [docFile, setDocFile]               = useState(null);
   const [savingDoc, setSavingDoc]           = useState(false);
+  const [uploadingDoc, setUploadingDoc]     = useState(false);
 
   // Protocolo expandido por contrato
   const [expandedProtocol, setExpandedProtocol] = useState(null); // fine id
@@ -249,6 +268,9 @@ export default function ClientDetail() {
   useEffect(() => {
     loadAll();
     loadClientDocs();
+    getServiceTypes()
+      .then(types => setServiceTypesData(types || []))
+      .catch(() => {});
   // eslint-disable-next-line
   }, [clientId]);
 
@@ -304,8 +326,11 @@ export default function ClientDetail() {
   const handleSelectServiceType = (e) => {
     e.preventDefault();
     if (!selectedServiceType) return;
-    const val  = selectedServiceType.toUpperCase();
-    const fake = { id: SERVICE_TYPE_IDS[val] || '7', name: selectedServiceType };
+    const val = selectedServiceType.toUpperCase();
+    // Preferência: ID real da API; fallback: mapeamento estático
+    const fromApi = serviceTypesData.find(t => t.code?.toUpperCase() === val);
+    const id = fromApi?.id || SERVICE_TYPE_IDS[val] || '7';
+    const fake = { id, name: selectedServiceType };
     setShowServiceModal(false);
     setSelectedServiceType('');
     openContractModal(fake);
@@ -325,17 +350,18 @@ export default function ClientDetail() {
     setSelectedService(service);
     setEditingContract(contract);
     setContractForm(contract ? {
-      numero_multa:    contract.numero_multa    || '',
-      vehicle_plate:   contract.vehicle_plate   || '',
-      organ:           contract.organ           || '',
-      status:          contract.status          || '',
-      notes:           contract.notes           || '',
-      infraction_type: contract.infraction_type || '',
-      // Protocolo
-      protocol_number: contract.protocol_number || '',
-      protocol_date:   contract.protocol_date   ? contract.protocol_date.substring(0, 10) : '',
-      protocol_status: contract.protocol_status || '',
-      protocol_notes:  contract.protocol_notes  || '',
+      numero_multa:     contract.numero_multa     || '',
+      vehicle_plate:    contract.vehicle_plate    || '',
+      organ:            contract.organ            || '',
+      status:           contract.status           || '',
+      notes:            contract.notes            || '',
+      infraction_type:  contract.infraction_type  || '',
+      due_date:         contract.due_date ? contract.due_date.substring(0, 10) : '',
+      protocol_number:  contract.protocol_number  || '',
+      protocol_date:    contract.protocol_date    ? contract.protocol_date.substring(0, 10) : '',
+      protocol_status:  contract.protocol_status  || '',
+      protocol_notes:   contract.protocol_notes   || '',
+      protocol_file_url: contract.protocol_file_url || '',
     } : EMPTY_CONTRACT);
     setShowContractModal(true);
   };
@@ -355,6 +381,7 @@ export default function ClientDetail() {
       status:          contractForm.status,
       notes:           contractForm.notes           || null,
       infraction_type: contractForm.infraction_type || null,
+      due_date:        contractForm.due_date        || null,
     };
 
     try {
@@ -382,10 +409,10 @@ export default function ClientDetail() {
     } catch (err) { setError(err.message); }
   };
 
-  // ── Salvar protocolo no contrato ──────────────────
+  // ── Salvar protocolo no contrato (PATCH — preserva demais campos) ──
   const handleSaveProtocol = async (contractId, protocolData) => {
     try {
-      await updateContract(contractId, { ...protocolData });
+      await patchContractProtocol(contractId, protocolData);
       await loadAll();
       setExpandedProtocol(null);
     } catch (err) {
@@ -393,40 +420,65 @@ export default function ClientDetail() {
     }
   };
 
-  // ── Documentos do cliente (localStorage temporário) ──
-  const loadClientDocs = () => {
+  // ── Documentos do cliente ──
+  const loadClientDocs = async () => {
     if (!clientId) return;
     try {
-      const stored = localStorage.getItem(`client_docs_${clientId}`);
-      setClientDocs(stored ? JSON.parse(stored) : []);
+      const docs = await getDocumentsByClient(clientId);
+      setClientDocs(docs || []);
     } catch { setClientDocs([]); }
   };
 
-  const saveClientDoc = (e) => {
+  const saveClientDoc = async (e) => {
     e.preventDefault();
-    if (!docForm.name) return;
-    setSavingDoc(true);
+    if (!docFile && !docForm.name) return;
     try {
-      const newDoc = {
-        id: Date.now().toString(),
-        ...docForm,
-        created_at: new Date().toISOString(),
-      };
-      const updated = [...clientDocs, newDoc];
-      localStorage.setItem(`client_docs_${clientId}`, JSON.stringify(updated));
-      setClientDocs(updated);
+      setSavingDoc(true);
+      let fileUrl = '';
+      let fileName = docForm.name;
+      let mimeType = '';
+      let fileSize = 0;
+
+      if (docFile) {
+        setUploadingDoc(true);
+        const uploaded = await uploadFile(docFile);
+        setUploadingDoc(false);
+        fileUrl   = uploaded.url;
+        fileName  = uploaded.originalName;
+        mimeType  = uploaded.mimeType;
+        fileSize  = uploaded.size;
+      }
+
+      if (!fileUrl) { setError('Selecione um arquivo para anexar.'); return; }
+
+      await createDocument({
+        client_id:   clientId,
+        file_url:    fileUrl,
+        file_name:   docForm.name || fileName,
+        file_type:   mimeType,
+        file_size:   fileSize,
+        category:    docForm.type || 'outros',
+        description: docForm.description || null,
+      });
+
       setDocForm({ name: '', type: '', description: '' });
+      setDocFile(null);
       setShowDocModal(false);
+      await loadClientDocs();
+    } catch (err) {
+      setUploadingDoc(false);
+      setError(err.message);
     } finally {
       setSavingDoc(false);
     }
   };
 
-  const deleteClientDoc = (id) => {
+  const deleteClientDoc = async (id) => {
     if (!confirm('Excluir documento?')) return;
-    const updated = clientDocs.filter(d => d.id !== id);
-    localStorage.setItem(`client_docs_${clientId}`, JSON.stringify(updated));
-    setClientDocs(updated);
+    try {
+      await deleteDocument(id);
+      await loadClientDocs();
+    } catch (err) { setError(err.message); }
   };
 
   // ── Render ───────────────────────────────────────
@@ -596,6 +648,7 @@ export default function ClientDetail() {
                           {(name === 'SUSPENSAO' || name === 'CASSACAO') && <><th>Nº Processo</th><th>Órgão</th></>}
                           {name === 'CRCI' && <th>Nº Processo</th>}
                           {name !== 'MULTA' && name !== 'SUSPENSAO' && name !== 'CASSACAO' && name !== 'CRCI' && <th>Serviço</th>}
+                          <th>Prazo</th>
                           <th>Andamento</th>
                           <th>Observações</th>
                           <th style={{ width: 80 }}>Ações</th>
@@ -625,6 +678,11 @@ export default function ClientDetail() {
                             {name !== 'MULTA' && name !== 'SUSPENSAO' && name !== 'CASSACAO' && name !== 'CRCI' && (
                               <td>{label}</td>
                             )}
+                            <td style={{ fontSize: 13, ...getPrazoStyle(contract.due_date) }}>
+                              {contract.due_date
+                                ? new Date(contract.due_date).toLocaleDateString('pt-BR')
+                                : '—'}
+                            </td>
                             <td>
                               <span className="service-status-badge" style={getStatusStyle(contract.status)}>
                                 {getStatusLabel(contract.status)}
@@ -711,9 +769,6 @@ export default function ClientDetail() {
               <polyline points="14 2 14 8 20 8"/>
             </svg>
             <p>Nenhum documento cadastrado. Clique em "Adicionar Documento".</p>
-            <p style={{ fontSize: 12, color: '#cbd5e1', marginTop: 4 }}>
-              Upload real de arquivos será disponibilizado em breve.
-            </p>
           </div>
         ) : (
           <div className="cd-doc-list">
@@ -726,11 +781,14 @@ export default function ClientDetail() {
                   </svg>
                 </div>
                 <div className="cd-doc-info">
-                  <span className="cd-doc-name">{doc.name}</span>
+                  {doc.file_url
+                    ? <a href={doc.file_url} target="_blank" rel="noreferrer" className="cd-doc-name" style={{ color: '#751518', textDecoration: 'none' }}>{doc.file_name || doc.name || 'Documento'}</a>
+                    : <span className="cd-doc-name">{doc.file_name || doc.name || 'Documento'}</span>
+                  }
                   <span className="cd-doc-meta">
-                    {doc.type && <span>{doc.type}</span>}
+                    {doc.category && doc.category !== 'outros' && <span>{doc.category}</span>}
                     {doc.description && <span>{doc.description}</span>}
-                    <span>{new Date(doc.created_at).toLocaleDateString('pt-BR')}</span>
+                    {doc.uploaded_at && <span>{new Date(doc.uploaded_at).toLocaleDateString('pt-BR')}</span>}
                   </span>
                 </div>
                 <button onClick={() => deleteClientDoc(doc.id)} className="btn-icon danger" title="Excluir">
@@ -963,6 +1021,14 @@ export default function ClientDetail() {
                         </select>
                       </div>
                       <div className="form-group">
+                        <label>Prazo</label>
+                        <input
+                          type="date"
+                          value={contractForm.due_date}
+                          onChange={e => setContractForm({ ...contractForm, due_date: e.target.value })}
+                        />
+                      </div>
+                      <div className="form-group">
                         <label>Observações</label>
                         <textarea
                           value={contractForm.notes}
@@ -988,13 +1054,32 @@ export default function ClientDetail() {
 
       {/* ── Modal: Adicionar documento ── */}
       {showDocModal && (
-        <div className="modal-overlay" onClick={() => setShowDocModal(false)}>
+        <div className="modal-overlay" onClick={() => { setShowDocModal(false); setDocFile(null); setDocForm({ name: '', type: '', description: '' }); }}>
           <div className="modal-content" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2 style={{ fontSize: 17, fontWeight: 700 }}>Novo Documento</h2>
-              <button onClick={() => setShowDocModal(false)} className="btn-close">✕</button>
+              <button onClick={() => { setShowDocModal(false); setDocFile(null); setDocForm({ name: '', type: '', description: '' }); }} className="btn-close">✕</button>
             </div>
             <form onSubmit={saveClientDoc} className="modal-form">
+              <div className="form-group">
+                <label>Arquivo *</label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: '#f8fafc', border: docFile ? '1px solid #bbf7d0' : '1px dashed #cbd5e1', borderRadius: 8, cursor: 'pointer' }}>
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    style={{ display: 'none' }}
+                    onChange={e => { setDocFile(e.target.files[0] || null); if (e.target.files[0] && !docForm.name) setDocForm(prev => ({ ...prev, name: e.target.files[0].name })); }}
+                  />
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={docFile ? '#16a34a' : '#94a3b8'} strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>
+                  <span style={{ fontSize: 13, color: docFile ? '#16a34a' : '#94a3b8' }}>
+                    {docFile ? docFile.name : 'Selecionar PDF, JPG ou PNG (máx. 10 MB)'}
+                  </span>
+                </label>
+              </div>
               <div className="form-group">
                 <label>Nome do documento *</label>
                 <input
@@ -1023,18 +1108,10 @@ export default function ClientDetail() {
                   placeholder="Observações sobre este documento..."
                 />
               </div>
-              <div className="cd-doc-upload-placeholder">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <polyline points="17 8 12 3 7 8"/>
-                  <line x1="12" y1="3" x2="12" y2="15"/>
-                </svg>
-                <span>Upload de arquivo — em breve</span>
-              </div>
               <div className="form-actions">
-                <button type="button" className="btn-secondary" onClick={() => setShowDocModal(false)}>Cancelar</button>
-                <button type="submit" className="btn-primary" disabled={savingDoc}>
-                  {savingDoc ? 'Salvando...' : 'Adicionar'}
+                <button type="button" className="btn-secondary" onClick={() => { setShowDocModal(false); setDocFile(null); setDocForm({ name: '', type: '', description: '' }); }}>Cancelar</button>
+                <button type="submit" className="btn-primary" disabled={savingDoc || uploadingDoc}>
+                  {uploadingDoc ? 'Enviando arquivo...' : savingDoc ? 'Salvando...' : 'Adicionar'}
                 </button>
               </div>
             </form>
@@ -1049,12 +1126,15 @@ export default function ClientDetail() {
 
 function ProtocolPanel({ contract, onSave, onClose }) {
   const [form, setForm] = useState({
-    protocol_number: contract.protocol_number || '',
-    protocol_date:   contract.protocol_date ? contract.protocol_date.substring(0,10) : '',
-    protocol_status: contract.protocol_status || 'pendente',
-    protocol_notes:  contract.protocol_notes || '',
+    protocol_number:   contract.protocol_number   || '',
+    protocol_date:     contract.protocol_date ? contract.protocol_date.substring(0, 10) : '',
+    protocol_status:   contract.protocol_status   || 'pendente',
+    protocol_notes:    contract.protocol_notes    || '',
+    protocol_file_url: contract.protocol_file_url || '',
   });
-  const [saving, setSaving] = useState(false);
+  const [saving,         setSaving]         = useState(false);
+  const [uploadingProto, setUploadingProto] = useState(false);
+  const [uploadError,    setUploadError]    = useState('');
 
   const PROTOCOL_STATUS_OPTIONS = [
     { value: 'pendente',    label: 'Pendente' },
@@ -1062,6 +1142,21 @@ function ProtocolPanel({ contract, onSave, onClose }) {
     { value: 'concluido',   label: 'Concluído' },
     { value: 'indeferido',  label: 'Indeferido' },
   ];
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploadError('');
+    setUploadingProto(true);
+    try {
+      const uploaded = await uploadFile(file);
+      setForm(prev => ({ ...prev, protocol_file_url: uploaded.url }));
+    } catch (err) {
+      setUploadError(err.message);
+    } finally {
+      setUploadingProto(false);
+    }
+  };
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -1118,6 +1213,43 @@ function ProtocolPanel({ contract, onSave, onClose }) {
             </select>
           </div>
         </div>
+
+        {/* Anexo do protocolo */}
+        <div className="form-group" style={{ margin: '10px 0 0' }}>
+          <label>Anexo do Protocolo</label>
+          {form.protocol_file_url ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+              <a href={form.protocol_file_url} target="_blank" rel="noreferrer" style={{ color: '#16a34a', fontSize: 12, flex: 1 }}>
+                Abrir / Baixar protocolo
+              </a>
+              <button
+                type="button"
+                onClick={() => setForm(prev => ({ ...prev, protocol_file_url: '' }))}
+                style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 11 }}
+              >
+                Remover
+              </button>
+            </div>
+          ) : (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: 8, cursor: uploadingProto ? 'default' : 'pointer' }}>
+              <input type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display: 'none' }} onChange={handleFileChange} disabled={uploadingProto} />
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <span style={{ fontSize: 12, color: '#94a3b8' }}>
+                {uploadingProto ? 'Enviando...' : 'Anexar PDF, JPG ou PNG (máx. 10 MB)'}
+              </span>
+            </label>
+          )}
+          {uploadError && <p style={{ color: '#ef4444', fontSize: 11, marginTop: 4 }}>{uploadError}</p>}
+        </div>
+
         <div className="form-group" style={{ margin: '10px 0 0' }}>
           <label>Observações do Protocolo</label>
           <textarea
@@ -1127,19 +1259,12 @@ function ProtocolPanel({ contract, onSave, onClose }) {
             placeholder="Informações adicionais sobre o protocolo..."
           />
         </div>
-        <div className="cd-protocol-upload-hint">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="17 8 12 3 7 8"/>
-            <line x1="12" y1="3" x2="12" y2="15"/>
-          </svg>
-          <span>Anexo de arquivo — em breve</span>
-        </div>
+
         <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
           <button type="button" className="btn-secondary" style={{ fontSize: 12, padding: '6px 14px' }} onClick={onClose}>
             Cancelar
           </button>
-          <button type="submit" className="btn-primary" style={{ fontSize: 12, padding: '6px 14px' }} disabled={saving}>
+          <button type="submit" className="btn-primary" style={{ fontSize: 12, padding: '6px 14px' }} disabled={saving || uploadingProto}>
             {saving ? 'Salvando...' : 'Salvar Protocolo'}
           </button>
         </div>

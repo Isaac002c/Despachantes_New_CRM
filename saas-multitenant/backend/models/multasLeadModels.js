@@ -112,11 +112,12 @@ const updateMultasLead = async (id, {
 
 // UPDATE status only
 const updateMultasLeadStatus = async (id, status, tenant_id) => {
-  if (!VALID_STATUSES.includes(status)) throw new Error('Status inválido');
+  const normalized = (status || '').toLowerCase().trim();
+  if (!VALID_STATUSES.includes(normalized)) throw new Error('Status inválido');
   const result = await pool.query(
     `UPDATE multas_leads SET status = $1, updated_at = NOW()
      WHERE id = $2 AND tenant_id = $3 RETURNING *`,
-    [status, id, tenant_id]
+    [normalized, id, tenant_id]
   );
   return result.rows[0];
 };

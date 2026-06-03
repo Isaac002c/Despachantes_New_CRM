@@ -3,6 +3,7 @@ require('dotenv').config({ path: __dirname + '/.env' });
 
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -26,6 +27,7 @@ const userManagementRoutes = require('./routes/userManagementRoutes');
 const finesRoutes = require('./routes/finesRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const multasLeadsRoutes = require('./routes/multasLeadsRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
 
 const app = express();
 
@@ -126,6 +128,15 @@ app.use((req, res, next) => {
 
 app.use('/auth', authRoutes);
 
+// Serve arquivos de upload estaticamente (sem autenticação — URL contém tenantId no path)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+  dotfiles: 'deny',
+  setHeaders: (res) => {
+    res.set('Cache-Control', 'private, max-age=86400');
+    res.set('X-Content-Type-Options', 'nosniff');
+  },
+}));
+
 app.use('/api', tenantContext);
 
 app.use('/api/leads', leadsRoutes);
@@ -143,6 +154,7 @@ app.use('/api/fines', finesRoutes);
 app.use('/api/users/management', userManagementRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/multas-leads', multasLeadsRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // ============================================
 // HEALTH CHECK (sem autenticação — para uptime monitors)

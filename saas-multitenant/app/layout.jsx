@@ -6,6 +6,11 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata = {
   title: 'ChronosTek - CRM',
   description: 'CRM Multitenant para gestao de leads e vendas',
+  icons: {
+    icon: '/icon.png',
+    shortcut: '/icon.png',
+    apple: '/icon.png',
+  },
 };
 
 export default function RootLayout({ children }) {

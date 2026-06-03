@@ -257,8 +257,8 @@ export default function Sidebar({ currentModule, currentTab, onNavigate, collaps
             <span className="sidebar-footer-label">
               <Icons.Mail /> Suporte
             </span>
-            <a href="mailto:contato@crmultas.com.br" className="sidebar-footer-email">
-              contato@crmultas.com.br
+            <a href="mailto:contato@chronostek.com.br" className="sidebar-footer-email">
+              contato@chronostek.com.br
             </a>
           </div>
         )}

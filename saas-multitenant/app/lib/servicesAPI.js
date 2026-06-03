@@ -1,5 +1,8 @@
 import { apiRequest } from './api.js';
 
+export const getServiceTypes = async () =>
+  (await apiRequest('/api/services/types')).data;
+
 export const getAllServices = async () =>
   (await apiRequest('/api/services')).data;
 

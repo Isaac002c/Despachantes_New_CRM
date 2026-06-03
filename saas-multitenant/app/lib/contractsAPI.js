@@ -15,6 +15,9 @@ export const createContract = async (contractData) =>
 export const updateContract = async (id, contractData) =>
   (await apiRequest(`/api/contracts/${id}`, { method: 'PUT', body: contractData })).data;
 
+export const patchContractProtocol = async (id, protocolData) =>
+  (await apiRequest(`/api/contracts/${id}/protocol`, { method: 'PATCH', body: protocolData })).data;
+
 export const deleteContract = async (id) =>
   (await apiRequest(`/api/contracts/${id}`, { method: 'DELETE' })).data;
 

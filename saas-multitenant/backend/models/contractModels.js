@@ -27,7 +27,7 @@ const createContract = async ({
 
 const getContractsByService = async (service_type_id, tenant_id, client_id) => {
   const result = await pool.query(
-    `SELECT 
+    `SELECT
       f.id,
       f.tenant_id,
       f.client_id,
@@ -45,6 +45,11 @@ const getContractsByService = async (service_type_id, tenant_id, client_id) => {
       f.due_date,
       f.defense_date AS deadline_date,
       f.notes,
+      f.protocol_number,
+      f.protocol_date,
+      f.protocol_status,
+      f.protocol_notes,
+      f.protocol_file_url,
       f.created_at,
       f.updated_at,
       st.code AS service_name
@@ -286,8 +291,8 @@ const getAlerts = async (tenant_id) => {
 const updateContract = async (id, {
   organ, infraction_type, vehicle_plate, vehicle_model,
   status, value, due_date, notes, numero_multa, deadline_date,
-  // Protocolo
-  protocol_number, protocol_date, protocol_status, protocol_notes
+  protocol_number, protocol_date, protocol_status, protocol_notes,
+  protocol_file_url,
 }, tenant_id) => {
   const result = await pool.query(
     `UPDATE fines
@@ -296,15 +301,38 @@ const updateContract = async (id, {
          fine_number=$9, defense_date=$10,
          protocol_number=$11, protocol_date=$12,
          protocol_status=$13, protocol_notes=$14,
+         protocol_file_url=$15,
          updated_at=NOW()
-     WHERE id=$15 AND tenant_id=$16 RETURNING *`,
+     WHERE id=$16 AND tenant_id=$17 RETURNING *`,
     [
       organ, infraction_type, vehicle_plate, vehicle_model,
       status, value, toDateOrNull(due_date), notes,
       numero_multa, toDateOrNull(deadline_date),
       protocol_number || null, toDateOrNull(protocol_date),
       protocol_status || null, protocol_notes || null,
-      id, tenant_id
+      protocol_file_url || null,
+      id, tenant_id,
+    ]
+  );
+  return result.rows[0];
+};
+
+// Atualiza apenas os campos de protocolo — não toca nos demais campos do contrato
+const patchContractProtocol = async (id, {
+  protocol_number, protocol_date, protocol_status, protocol_notes, protocol_file_url
+}, tenant_id) => {
+  const result = await pool.query(
+    `UPDATE fines
+     SET protocol_number=$1, protocol_date=$2, protocol_status=$3,
+         protocol_notes=$4, protocol_file_url=$5, updated_at=NOW()
+     WHERE id=$6 AND tenant_id=$7 RETURNING *`,
+    [
+      protocol_number || null,
+      toDateOrNull(protocol_date),
+      protocol_status || null,
+      protocol_notes  || null,
+      protocol_file_url || null,
+      id, tenant_id,
     ]
   );
   return result.rows[0];
@@ -384,6 +412,6 @@ module.exports = {
   getContractsByClient, getContractsByService, getContractsByStatus,
   getContractsByOrgan, countContracts, countActiveContracts, getDashboardStats,
   getContractsGroupedByOrgan, getAPRsByStage, getContractsNearDueDate,
-  getOverdueContracts, getAlerts, updateContract, updateContractStatus, deleteContract,
-  getClientsByStageGroup,
+  getOverdueContracts, getAlerts, updateContract, patchContractProtocol,
+  updateContractStatus, deleteContract, getClientsByStageGroup,
 };

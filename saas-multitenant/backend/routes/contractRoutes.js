@@ -100,6 +100,17 @@ router.put('/:id', checkPermission('contracts:update'), async (req, res) => {
   }
 });
 
+// PATCH /api/contracts/:id/protocol — atualiza apenas campos de protocolo
+router.patch('/:id/protocol', checkPermission('contracts:update'), async (req, res) => {
+  try {
+    const contract = await contractModel.patchContractProtocol(req.params.id, req.body, req.tenantId);
+    if (!contract) return res.status(404).json({ success: false, error: 'Not found' });
+    res.json({ success: true, data: contract });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 router.delete('/:id', checkPermission('contracts:delete'), async (req, res) => {
   try {
     const contract = await contractModel.deleteContract(req.params.id, req.tenantId);

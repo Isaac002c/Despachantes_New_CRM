@@ -2,6 +2,16 @@ const express = require('express');
 const router = express.Router();
 const serviceModel = require('../models/serviceModels');
 
+// GET /api/services/types — todos os tipos de serviço disponíveis (sem filtro de tenant)
+router.get('/types', async (req, res) => {
+  try {
+    const types = await serviceModel.getAllServiceTypes();
+    res.json({ success: true, data: types });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // GET /api/services
 router.get('/', async (req, res) => {
   try {

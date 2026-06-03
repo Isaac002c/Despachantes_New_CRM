@@ -82,7 +82,14 @@ const countServicesByClient = async (client_id, tenant_id) => {
 
 const updateService = async () => null;
 
+const getAllServiceTypes = async () => {
+  const result = await pool.query(
+    'SELECT id::text AS id, code, label FROM service_types ORDER BY id'
+  );
+  return result.rows;
+};
+
 module.exports = {
   createService, getAllServices, getServicesByClient, getServiceById,
-  countServicesByClient, updateService, deleteService
+  countServicesByClient, updateService, deleteService, getAllServiceTypes
 };
