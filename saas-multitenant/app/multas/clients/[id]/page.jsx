@@ -1094,7 +1094,7 @@ export default function ClientDetail() {
                 <label>Tipo</label>
                 <select value={docForm.type} onChange={e => setDocForm({ ...docForm, type: e.target.value })}>
                   <option value="">Selecione o tipo...</option>
-                  {['CNH', 'CPF', 'RG', 'Comprovante de Residência', 'Procuração', 'Auto de Infração', 'Protocolo', 'Outros'].map(t => (
+                  {['CNH', 'CPF', 'RG', 'Comprovante de Residência', 'Procuração', 'Contrato', 'Auto de Infração', 'Protocolo', 'Outros'].map(t => (
                     <option key={t} value={t}>{t}</option>
                   ))}
                 </select>

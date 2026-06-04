@@ -51,7 +51,7 @@ const SOURCE_OPTIONS = [
   'Facebook', 'Telefone', 'Presencial', 'Outros',
 ];
 
-const BLOCKED_STATUSES = ['possui_defensor', 'nao_quer_defender'];
+const BLOCKED_STATUSES = ['nao_quer_defender'];
 
 const MOTIVO_LABELS = {
   possui_defensor:   'Nome / Contato do Defensor',
@@ -66,6 +66,36 @@ const EMPTY_FORM = {
 const toInputDate = (v) => (!v ? '' : v.substring(0, 10));
 
 const formatDate = (v) => (!v ? '—' : new Date(v).toLocaleDateString('pt-BR'));
+
+// Helpers de data — idênticos ao módulo Clientes para permitir paste
+const normalizeDate = (v) => {
+  if (!v) return '';
+  const s = v.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const [y, m, d] = s.split('-'); return `${d}/${m}/${y}`; }
+  const digits = s.replace(/\D/g, '').slice(0, 8);
+  if (digits.length === 8) return `${digits.slice(0,2)}/${digits.slice(2,4)}/${digits.slice(4)}`;
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0,2)}/${digits.slice(2)}`;
+  return `${digits.slice(0,2)}/${digits.slice(2,4)}/${digits.slice(4)}`;
+};
+
+const isoToDisplay = (v) => {
+  if (!v) return '';
+  const s = v.substring(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const [y, m, d] = s.split('-'); return `${d}/${m}/${y}`; }
+  return s;
+};
+
+const displayToIso = (v) => {
+  if (!v || !v.trim()) return null;
+  const s = v.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const mSep = s.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/);
+  if (mSep) return `${mSep[3]}-${mSep[2].padStart(2,'0')}-${mSep[1].padStart(2,'0')}`;
+  const mRaw = s.match(/^(\d{2})(\d{2})(\d{4})$/);
+  if (mRaw) return `${mRaw[3]}-${mRaw[2]}-${mRaw[1]}`;
+  return null;
+};
 
 function PlusIcon() {
   return (
@@ -123,8 +153,8 @@ export default function MultasLeads() {
       name:               lead.name               || '',
       cpf:                lead.cpf                || '',
       cnh:                lead.cnh                || '',
-      first_license_date: toInputDate(lead.first_license_date),
-      birth_date:         toInputDate(lead.birth_date),
+      first_license_date: isoToDisplay(lead.first_license_date),
+      birth_date:         isoToDisplay(lead.birth_date),
       phone:              lead.phone              || '',
       source:             lead.source             || '',
       status:             lead.status             || 'entrada',
@@ -139,10 +169,15 @@ export default function MultasLeads() {
     e.preventDefault();
     try {
       setSaving(true);
+      const payload = {
+        ...formData,
+        first_license_date: displayToIso(formData.first_license_date),
+        birth_date:         displayToIso(formData.birth_date),
+      };
       if (editingLead) {
-        await updateMultasLead(editingLead.id, formData);
+        await updateMultasLead(editingLead.id, payload);
       } else {
-        await createMultasLead(formData);
+        await createMultasLead(payload);
       }
       setShowModal(false);
       setEditingLead(null);
@@ -467,11 +502,21 @@ export default function MultasLeads() {
               <div className="form-row">
                 <div className="form-group">
                   <label>1ª Habilitação</label>
-                  <input type="date" value={formData.first_license_date} onChange={set('first_license_date')} />
+                  <input
+                    type="text"
+                    value={formData.first_license_date}
+                    onChange={e => setFormData(prev => ({ ...prev, first_license_date: normalizeDate(e.target.value) }))}
+                    placeholder="ex: 01/01/2000 ou 01012000"
+                  />
                 </div>
                 <div className="form-group">
                   <label>Nascimento</label>
-                  <input type="date" value={formData.birth_date} onChange={set('birth_date')} />
+                  <input
+                    type="text"
+                    value={formData.birth_date}
+                    onChange={e => setFormData(prev => ({ ...prev, birth_date: normalizeDate(e.target.value) }))}
+                    placeholder="ex: 01/01/2000 ou 01012000"
+                  />
                 </div>
               </div>
               <div className="form-row">
