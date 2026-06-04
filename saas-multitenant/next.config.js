@@ -38,7 +38,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https:",
               "font-src 'self' data:",
-              "connect-src 'self' http://localhost:5000",
+              "connect-src 'self' http://localhost:5000 https://api-despachante.chronostek.com.br",
               "frame-ancestors 'none'",
               "object-src 'none'",
             ].join('; '),
