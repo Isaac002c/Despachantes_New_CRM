@@ -27,7 +27,9 @@ const userManagementRoutes = require('./routes/userManagementRoutes');
 const finesRoutes = require('./routes/finesRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const multasLeadsRoutes = require('./routes/multasLeadsRoutes');
-const uploadRoutes = require('./routes/uploadRoutes');
+const uploadRoutes        = require('./routes/uploadRoutes');
+const fineProtocolRoutes  = require('./routes/fineProtocolRoutes');
+const approvalRoutes      = require('./routes/approvalRoutes');
 
 const app = express();
 
@@ -155,6 +157,8 @@ app.use('/api/users/management', userManagementRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/multas-leads', multasLeadsRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/fine-protocols', fineProtocolRoutes);
+app.use('/api/approvals', approvalRoutes);
 
 // ============================================
 // HEALTH CHECK (sem autenticação — para uptime monitors)
@@ -216,6 +220,6 @@ process.on('unhandledRejection', (reason) => {
   }
 
   app.listen(PORT, () => {
-    console.log(` CR Multas CRM rodando na porta ${PORT} (${process.env.NODE_ENV || 'development'})`);
+    console.log(` CR Recursos CRM rodando na porta ${PORT} (${process.env.NODE_ENV || 'development'})`);
   });
 })();

@@ -1,6 +1,6 @@
 const pool = require('../config/db');
 
-const VALID_STATUSES = ['entrada', 'possui_defensor', 'nao_quer_defender', 'negociacao', 'fechado', 'perdido'];
+const VALID_STATUSES = ['entrada', 'possui_defensor', 'nao_quer_defender', 'negociacao', 'fechado', 'perdido', 'nao_encontrado'];
 
 // CREATE
 const createMultasLead = async ({
@@ -34,13 +34,13 @@ const createMultasLead = async ({
   return result.rows[0];
 };
 
-// READ - todos
+// READ - todos (exclui arquivados)
 const getAllMultasLeads = async (tenant_id) => {
   const result = await pool.query(
     `SELECT ml.*, u.name AS user_name
      FROM multas_leads ml
      LEFT JOIN users u ON ml.created_by = u.id
-     WHERE ml.tenant_id = $1
+     WHERE ml.tenant_id = $1 AND ml.archived_at IS NULL
      ORDER BY ml.created_at DESC`,
     [tenant_id]
   );
@@ -124,6 +124,25 @@ const updateMultasLeadStatus = async (id, status, tenant_id) => {
   return result.rows[0];
 };
 
+// ARCHIVE OLD (soft delete — admin only)
+// negociacao: 30 dias | demais (exceto entrada/fechado): 7 dias
+const archiveOldLeads = async (tenant_id) => {
+  const result = await pool.query(
+    `UPDATE multas_leads
+     SET archived_at = NOW()
+     WHERE tenant_id = $1
+       AND archived_at IS NULL
+       AND (
+         (status = 'negociacao'  AND created_at < NOW() - INTERVAL '30 days')
+         OR
+         (status NOT IN ('negociacao','entrada','fechado') AND created_at < NOW() - INTERVAL '7 days')
+       )
+     RETURNING id, status, created_at`,
+    [tenant_id]
+  );
+  return result.rows;
+};
+
 // DELETE
 const deleteMultasLead = async (id, tenant_id) => {
   const result = await pool.query(
@@ -142,4 +161,5 @@ module.exports = {
   updateMultasLead,
   updateMultasLeadStatus,
   deleteMultasLead,
+  archiveOldLeads,
 };

@@ -7,6 +7,8 @@ import { getServicesByClient, deleteService, getServiceTypes } from '../../../li
 import { getContractsByService, createContract, updateContract, deleteContract, patchContractProtocol } from '../../../lib/contractsAPI';
 import { getDocumentsByClient, createDocument, deleteDocument } from '../../../lib/documentsAPI';
 import { uploadFile } from '../../../lib/uploadsAPI';
+import { listByFine, createProtocol, updateProtocol, deleteProtocol } from '../../../lib/fineProtocolsAPI';
+import { requestDeletion } from '../../../lib/approvalsAPI';
 
 // ─── Constantes de negócio ────────────────────────────
 
@@ -188,8 +190,8 @@ const EMPTY_CONTRACT = {
   protocol_file_url: '',
 };
 
+// Sem "Pendente" (removido por spec)
 const PROTOCOL_STATUS_OPTIONS = [
-  { value: 'pendente',    label: 'Pendente' },
   { value: 'protocolado', label: 'Protocolado' },
   { value: 'concluido',   label: 'Concluído' },
   { value: 'indeferido',  label: 'Indeferido' },
@@ -201,6 +203,10 @@ export default function ClientDetail() {
   const router   = useRouter();
   const params   = useParams();
   const clientId = params?.id;
+
+  const currentUser = typeof window !== 'undefined'
+    ? JSON.parse(localStorage.getItem('user') || '{}') : {};
+  const isAdmin = currentUser?.role === 'admin';
 
   const [client, setClient]             = useState(null);
   const [services, setServices]         = useState([]);
@@ -234,9 +240,17 @@ export default function ClientDetail() {
   const [docFile, setDocFile]               = useState(null);
   const [savingDoc, setSavingDoc]           = useState(false);
   const [uploadingDoc, setUploadingDoc]     = useState(false);
+  const [showDeleteDocModal, setShowDeleteDocModal] = useState(null);
+  const [deleteDocReason, setDeleteDocReason]       = useState('');
+  const [deletingDocRequest, setDeletingDocRequest] = useState(false);
 
   // Protocolo expandido por contrato
   const [expandedProtocol, setExpandedProtocol] = useState(null); // fine id
+
+  // Solicitação de exclusão (non-admin)
+  const [showDeleteContractModal, setShowDeleteContractModal] = useState(null);
+  const [deleteContractReason,    setDeleteContractReason]    = useState('');
+  const [deletingContractRequest, setDeletingContractRequest] = useState(false);
 
   const loadAll = useCallback(async () => {
     if (!clientId) return;
@@ -409,6 +423,23 @@ export default function ClientDetail() {
     } catch (err) { setError(err.message); }
   };
 
+  const handleSolicitarExclusaoContrato = async (e) => {
+    e.preventDefault();
+    if (!showDeleteContractModal) return;
+    try {
+      setDeletingContractRequest(true);
+      await requestDeletion({
+        target_type:  'contract',
+        target_id:    showDeleteContractModal.id,
+        target_label: showDeleteContractModal.numero_multa || showDeleteContractModal.id,
+        reason:       deleteContractReason,
+      });
+      setShowDeleteContractModal(null); setDeleteContractReason('');
+      alert('Solicitação enviada. Aguarde aprovação do administrador.');
+    } catch (err) { setError(err.message); }
+    finally { setDeletingContractRequest(false); }
+  };
+
   // ── Salvar protocolo no contrato (PATCH — preserva demais campos) ──
   const handleSaveProtocol = async (contractId, protocolData) => {
     try {
@@ -474,11 +505,29 @@ export default function ClientDetail() {
   };
 
   const deleteClientDoc = async (id) => {
+    if (!isAdmin) return;
     if (!confirm('Excluir documento?')) return;
     try {
       await deleteDocument(id);
       await loadClientDocs();
     } catch (err) { setError(err.message); }
+  };
+
+  const handleSolicitarExclusaoDoc = async (e) => {
+    e.preventDefault();
+    try {
+      setDeletingDocRequest(true);
+      await requestDeletion({
+        target_type: 'document',
+        target_id: showDeleteDocModal.id,
+        target_label: showDeleteDocModal.file_name || 'Documento',
+        reason: deleteDocReason,
+      });
+      setShowDeleteDocModal(null);
+      setDeleteDocReason('');
+      alert('Solicitação enviada. Aguarde aprovação do administrador.');
+    } catch (err) { setError(err.message); }
+    finally { setDeletingDocRequest(false); }
   };
 
   // ── Render ───────────────────────────────────────
@@ -712,13 +761,20 @@ export default function ClientDetail() {
                                     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                                   </svg>
                                 </button>
-                                <button onClick={() => handleDeleteContract(service.id, contract.id)} className="btn-icon danger" title="Excluir">
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <polyline points="3 6 5 6 21 6"/>
-                                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                                    <path d="M10 11v6M14 11v6"/>
-                                  </svg>
-                                </button>
+                                {isAdmin ? (
+                                  <button onClick={() => handleDeleteContract(service.id, contract.id)} className="btn-icon danger" title="Excluir">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <polyline points="3 6 5 6 21 6"/>
+                                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                                    </svg>
+                                  </button>
+                                ) : (
+                                  <button onClick={()=>{ setShowDeleteContractModal(contract); setDeleteContractReason(''); }} className="btn-icon" title="Solicitar exclusão" style={{ color:'#f59e0b' }}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                                    </svg>
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -791,12 +847,20 @@ export default function ClientDetail() {
                     {doc.uploaded_at && <span>{new Date(doc.uploaded_at).toLocaleDateString('pt-BR')}</span>}
                   </span>
                 </div>
-                <button onClick={() => deleteClientDoc(doc.id)} className="btn-icon danger" title="Excluir">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="3 6 5 6 21 6"/>
-                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                  </svg>
-                </button>
+                {isAdmin ? (
+                  <button onClick={() => deleteClientDoc(doc.id)} className="btn-icon danger" title="Excluir">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="3 6 5 6 21 6"/>
+                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                    </svg>
+                  </button>
+                ) : (
+                  <button onClick={() => { setShowDeleteDocModal(doc); setDeleteDocReason(''); }} className="btn-icon" title="Solicitar exclusão" style={{ color: '#f59e0b' }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -1094,7 +1158,7 @@ export default function ClientDetail() {
                 <label>Tipo</label>
                 <select value={docForm.type} onChange={e => setDocForm({ ...docForm, type: e.target.value })}>
                   <option value="">Selecione o tipo...</option>
-                  {['CNH', 'CPF', 'RG', 'Comprovante de Residência', 'Procuração', 'Contrato', 'Auto de Infração', 'Protocolo', 'Outros'].map(t => (
+                  {['CNH', 'RG', 'CRLV', 'Comprovante de Residência', 'Comprovante de Pagamento', 'Procuração', 'Contrato', 'Auto de Infração', 'Outros'].map(t => (
                     <option key={t} value={t}>{t}</option>
                   ))}
                 </select>
@@ -1118,157 +1182,276 @@ export default function ClientDetail() {
           </div>
         </div>
       )}
+
+      {/* Modal: Solicitar exclusão de documento */}
+      {showDeleteDocModal && (
+        <div className="modal-overlay" onClick={()=>setShowDeleteDocModal(null)}>
+          <div className="modal-content" style={{ maxWidth:420 }} onClick={e=>e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 style={{ fontSize:16, fontWeight:700 }}>Solicitar Exclusão</h2>
+              <button onClick={()=>setShowDeleteDocModal(null)} className="btn-close">✕</button>
+            </div>
+            <form onSubmit={handleSolicitarExclusaoDoc} className="modal-form">
+              <p style={{ fontSize:13, color:'#475569', marginBottom:12 }}>
+                Solicitando exclusão de: <strong>{showDeleteDocModal.file_name || 'Documento'}</strong>
+              </p>
+              <div className="form-group">
+                <label>Motivo da exclusão</label>
+                <textarea value={deleteDocReason} onChange={e=>setDeleteDocReason(e.target.value)} rows={3} placeholder="Explique por que deseja excluir este documento..." />
+              </div>
+              <div className="form-actions">
+                <button type="button" onClick={()=>setShowDeleteDocModal(null)} className="btn-secondary">Cancelar</button>
+                <button type="submit" className="btn-primary" disabled={deletingDocRequest} style={{ background:'#f59e0b', borderColor:'#f59e0b' }}>
+                  {deletingDocRequest?'Enviando...':'Solicitar Exclusão'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Solicitar exclusão de contrato */}
+      {showDeleteContractModal && (
+        <div className="modal-overlay" onClick={()=>setShowDeleteContractModal(null)}>
+          <div className="modal-content" style={{ maxWidth:420 }} onClick={e=>e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 style={{ fontSize:16, fontWeight:700 }}>Solicitar Exclusão</h2>
+              <button onClick={()=>setShowDeleteContractModal(null)} className="btn-close">✕</button>
+            </div>
+            <form onSubmit={handleSolicitarExclusaoContrato} className="modal-form">
+              <p style={{ fontSize:13, color:'#475569', marginBottom:12 }}>
+                Solicitando exclusão do registro: <strong>{showDeleteContractModal.numero_multa||showDeleteContractModal.id}</strong>
+              </p>
+              <div className="form-group">
+                <label>Motivo da exclusão</label>
+                <textarea value={deleteContractReason} onChange={e=>setDeleteContractReason(e.target.value)} rows={3} placeholder="Explique por que deseja excluir..." />
+              </div>
+              <div className="form-actions">
+                <button type="button" onClick={()=>setShowDeleteContractModal(null)} className="btn-secondary">Cancelar</button>
+                <button type="submit" className="btn-primary" disabled={deletingContractRequest} style={{ background:'#f59e0b', borderColor:'#f59e0b' }}>
+                  {deletingContractRequest?'Enviando...':'Solicitar Exclusão'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// ─── Componente de Protocolo inline ────────────────────────────────────────────
+// ─── Componente de Protocolo inline (múltiplos protocolos) ─────────────────────
 
 function ProtocolPanel({ contract, onSave, onClose }) {
-  const [form, setForm] = useState({
-    protocol_number:   contract.protocol_number   || '',
-    protocol_date:     contract.protocol_date ? contract.protocol_date.substring(0, 10) : '',
-    protocol_status:   contract.protocol_status   || 'pendente',
-    protocol_notes:    contract.protocol_notes    || '',
-    protocol_file_url: contract.protocol_file_url || '',
-  });
-  const [saving,         setSaving]         = useState(false);
-  const [uploadingProto, setUploadingProto] = useState(false);
-  const [uploadError,    setUploadError]    = useState('');
+  // Estado dos protocolos carregados da nova tabela
+  const [protocols,     setProtocols]    = useState([]);
+  const [loadingProto,  setLoadingProto] = useState(true);
+  const [showAddForm,   setShowAddForm]  = useState(false);
+  const [editingId,     setEditingId]    = useState(null);
+  const [saving,        setSaving]       = useState(false);
+  const [uploadingId,   setUploadingId]  = useState(null);
+  const [uploadError,   setUploadError]  = useState('');
 
-  const PROTOCOL_STATUS_OPTIONS = [
-    { value: 'pendente',    label: 'Pendente' },
-    { value: 'protocolado', label: 'Protocolado' },
-    { value: 'concluido',   label: 'Concluído' },
-    { value: 'indeferido',  label: 'Indeferido' },
-  ];
+  const emptyProto = { protocol_number:'', protocol_date:'', protocol_status:'protocolado', protocol_notes:'', protocol_file_url:'' };
+  const [newForm, setNewForm] = useState(emptyProto);
 
-  const handleFileChange = async (e) => {
+  // Carregar protocolos ao montar
+  useEffect(() => {
+    listByFine(contract.id)
+      .then(data => setProtocols(data || []))
+      .catch(() => setProtocols([]))
+      .finally(() => setLoadingProto(false));
+  }, [contract.id]);
+
+  const handleFileUpload = async (e, formSetter) => {
     const file = e.target.files[0];
     if (!file) return;
     setUploadError('');
-    setUploadingProto(true);
+    setUploadingId('uploading');
     try {
-      const uploaded = await uploadFile(file);
-      setForm(prev => ({ ...prev, protocol_file_url: uploaded.url }));
-    } catch (err) {
-      setUploadError(err.message);
-    } finally {
-      setUploadingProto(false);
-    }
+      const up = await uploadFile(file);
+      formSetter(prev => ({ ...prev, protocol_file_url: up.url }));
+    } catch (err) { setUploadError(err.message); }
+    finally { setUploadingId(null); }
   };
 
-  const handleSave = async (e) => {
+  const handleAdd = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
-      await onSave(form);
-    } finally {
-      setSaving(false);
-    }
+      const created = await createProtocol({ ...newForm, fine_id: contract.id });
+      setProtocols(prev => [...prev, created]);
+      setNewForm({ protocol_number:'', protocol_date:'', protocol_status:'protocolado', protocol_notes:'', protocol_file_url:'' });
+      setShowAddForm(false);
+    } catch (err) { setUploadError(err.message); }
+    finally { setSaving(false); }
   };
+
+  const handleUpdateItem = async (proto, field, value) => {
+    try {
+      const updated = await updateProtocol(proto.id, { ...proto, [field]: value });
+      setProtocols(prev => prev.map(p => p.id===proto.id ? updated : p));
+    } catch (err) { setUploadError(err.message); }
+  };
+
+  const handleDeleteItem = async (id) => {
+    if (!confirm('Excluir este protocolo?')) return;
+    try {
+      await deleteProtocol(id);
+      setProtocols(prev => prev.filter(p => p.id!==id));
+    } catch (err) { setUploadError(err.message); }
+  };
+
+  // Protocolo legado (fines.protocol_*) — exibe como item read-only se tiver dados
+  const hasLegacy = !!(contract.protocol_number || contract.protocol_date || contract.protocol_file_url);
+
+  const ProtocolItemForm = ({ form, setForm, onSubmit, onCancel, submitting }) => (
+    <div style={{ padding:'12px', background:'#f8fafc', borderRadius:8, border:'1px solid #e2e8f0', marginBottom:8 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:8 }}>
+        <div><label style={{ fontSize:11, color:'#64748b', display:'block', marginBottom:3 }}>Número</label>
+          <input type="text" value={form.protocol_number} onChange={e=>setForm(p=>({...p,protocol_number:e.target.value}))} placeholder="Ex.: 2024/00123" style={{ width:'100%', padding:'6px 8px', border:'1px solid #e2e8f0', borderRadius:6, fontSize:12 }} />
+        </div>
+        <div><label style={{ fontSize:11, color:'#64748b', display:'block', marginBottom:3 }}>Data</label>
+          <input type="date" value={form.protocol_date} onChange={e=>setForm(p=>({...p,protocol_date:e.target.value}))} style={{ width:'100%', padding:'6px 8px', border:'1px solid #e2e8f0', borderRadius:6, fontSize:12 }} />
+        </div>
+        <div><label style={{ fontSize:11, color:'#64748b', display:'block', marginBottom:3 }}>Status</label>
+          <select value={form.protocol_status} onChange={e=>setForm(p=>({...p,protocol_status:e.target.value}))} style={{ width:'100%', padding:'6px 8px', border:'1px solid #e2e8f0', borderRadius:6, fontSize:12, background:'#fff' }}>
+            {PROTOCOL_STATUS_OPTIONS.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+      </div>
+      <div style={{ marginBottom:8 }}>
+        <label style={{ fontSize:11, color:'#64748b', display:'block', marginBottom:3 }}>Observações</label>
+        <textarea value={form.protocol_notes} onChange={e=>setForm(p=>({...p,protocol_notes:e.target.value}))} rows={2} placeholder="Observações..." style={{ width:'100%', padding:'6px 8px', border:'1px solid #e2e8f0', borderRadius:6, fontSize:12, resize:'vertical' }} />
+      </div>
+      <div style={{ marginBottom:8 }}>
+        <label style={{ fontSize:11, color:'#64748b', display:'block', marginBottom:3 }}>Anexo</label>
+        {form.protocol_file_url ? (
+          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 10px', background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:6 }}>
+            <a href={form.protocol_file_url} target="_blank" rel="noreferrer" style={{ color:'#16a34a', fontSize:12, flex:1 }}>Abrir / Baixar</a>
+            <button type="button" onClick={()=>setForm(p=>({...p,protocol_file_url:''}))} style={{ border:'none', background:'none', cursor:'pointer', color:'#ef4444', fontSize:11 }}>Remover</button>
+          </div>
+        ) : (
+          <label style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 10px', background:'#fff', border:'1px dashed #cbd5e1', borderRadius:6, cursor:'pointer' }}>
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display:'none' }} onChange={e=>handleFileUpload(e, setForm)} disabled={uploadingId==='uploading'} />
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <span style={{ fontSize:11, color:'#94a3b8' }}>{uploadingId==='uploading'?'Enviando...':'Anexar PDF, JPG ou PNG (máx. 10 MB)'}</span>
+          </label>
+        )}
+      </div>
+      {uploadError && <p style={{ color:'#ef4444', fontSize:11, margin:'4px 0' }}>{uploadError}</p>}
+      <div style={{ display:'flex', gap:6, justifyContent:'flex-end' }}>
+        {onCancel && <button type="button" onClick={onCancel} style={{ padding:'5px 12px', borderRadius:6, fontSize:12, background:'#fff', border:'1px solid #e2e8f0', color:'#475569', cursor:'pointer' }}>Cancelar</button>}
+        <button type="button" onClick={onSubmit} disabled={submitting} style={{ padding:'5px 12px', borderRadius:6, fontSize:12, background:'#751518', border:'none', color:'#fff', cursor:'pointer' }}>
+          {submitting?'Salvando...':'Salvar'}
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="cd-protocol-panel">
       <div className="cd-protocol-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:7 }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#751518" strokeWidth="2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
             <polyline points="14 2 14 8 20 8"/>
             <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
           </svg>
-          <span className="cd-protocol-title">Protocolo</span>
-          {contract.protocol_number && (
-            <span className="cd-protocol-badge">{contract.protocol_number}</span>
-          )}
+          <span className="cd-protocol-title">Protocolos</span>
+          <span style={{ fontSize:11, color:'#94a3b8', background:'#f1f5f9', borderRadius:10, padding:'1px 7px' }}>
+            {protocols.length + (hasLegacy ? 1 : 0)}
+          </span>
         </div>
-        <button className="cd-protocol-close" onClick={onClose}>✕</button>
+        <div style={{ display:'flex', gap:6 }}>
+          <button type="button" onClick={()=>setShowAddForm(v=>!v)} style={{ padding:'4px 10px', borderRadius:6, fontSize:11, background:'#751518', border:'none', color:'#fff', cursor:'pointer' }}>
+            + Adicionar
+          </button>
+          <button className="cd-protocol-close" onClick={onClose}>✕</button>
+        </div>
       </div>
 
-      <form onSubmit={handleSave} className="cd-protocol-form">
-        <div className="cd-protocol-grid">
-          <div className="form-group" style={{ margin: 0 }}>
-            <label>Número do Protocolo</label>
-            <input
-              type="text"
-              value={form.protocol_number}
-              onChange={e => setForm({ ...form, protocol_number: e.target.value })}
-              placeholder="Ex.: 2024/00123"
-            />
-          </div>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label>Data do Protocolo</label>
-            <input
-              type="date"
-              value={form.protocol_date}
-              onChange={e => setForm({ ...form, protocol_date: e.target.value })}
-            />
-          </div>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label>Status</label>
-            <select value={form.protocol_status} onChange={e => setForm({ ...form, protocol_status: e.target.value })}>
-              {PROTOCOL_STATUS_OPTIONS.map(o => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </div>
-        </div>
+      <div style={{ padding:'8px 12px' }}>
+        {loadingProto ? (
+          <p style={{ fontSize:12, color:'#94a3b8', textAlign:'center', padding:'12px 0' }}>Carregando...</p>
+        ) : (
+          <>
+            {/* Formulário novo protocolo */}
+            {showAddForm && (
+              <ProtocolItemForm
+                form={newForm} setForm={setNewForm}
+                onSubmit={handleAdd} onCancel={()=>setShowAddForm(false)}
+                submitting={saving}
+              />
+            )}
 
-        {/* Anexo do protocolo */}
-        <div className="form-group" style={{ margin: '10px 0 0' }}>
-          <label>Anexo do Protocolo</label>
-          {form.protocol_file_url ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8 }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-              </svg>
-              <a href={form.protocol_file_url} target="_blank" rel="noreferrer" style={{ color: '#16a34a', fontSize: 12, flex: 1 }}>
-                Abrir / Baixar protocolo
-              </a>
-              <button
-                type="button"
-                onClick={() => setForm(prev => ({ ...prev, protocol_file_url: '' }))}
-                style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 11 }}
-              >
-                Remover
-              </button>
-            </div>
-          ) : (
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: 8, cursor: uploadingProto ? 'default' : 'pointer' }}>
-              <input type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display: 'none' }} onChange={handleFileChange} disabled={uploadingProto} />
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="17 8 12 3 7 8"/>
-                <line x1="12" y1="3" x2="12" y2="15"/>
-              </svg>
-              <span style={{ fontSize: 12, color: '#94a3b8' }}>
-                {uploadingProto ? 'Enviando...' : 'Anexar PDF, JPG ou PNG (máx. 10 MB)'}
-              </span>
-            </label>
-          )}
-          {uploadError && <p style={{ color: '#ef4444', fontSize: 11, marginTop: 4 }}>{uploadError}</p>}
-        </div>
+            {/* Protocolo legado (fines.protocol_*) — somente leitura */}
+            {hasLegacy && (
+              <div style={{ padding:'10px 12px', background:'#fffbeb', border:'1px solid #fde68a', borderRadius:8, marginBottom:8 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+                  <span style={{ fontSize:11, fontWeight:600, color:'#92400e' }}>Protocolo legado</span>
+                  <span style={{ fontSize:10, color:'#b45309' }}>somente leitura</span>
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:6, fontSize:12, color:'#475569' }}>
+                  <div><strong>Nº:</strong> {contract.protocol_number||'—'}</div>
+                  <div><strong>Data:</strong> {contract.protocol_date ? new Date(contract.protocol_date).toLocaleDateString('pt-BR') : '—'}</div>
+                  <div><strong>Status:</strong> {contract.protocol_status||'—'}</div>
+                </div>
+                {contract.protocol_notes && <div style={{ fontSize:12, color:'#64748b', marginTop:4 }}>{contract.protocol_notes}</div>}
+                {contract.protocol_file_url && (
+                  <a href={contract.protocol_file_url} target="_blank" rel="noreferrer" style={{ fontSize:12, color:'#92400e', display:'block', marginTop:4 }}>Abrir anexo legado</a>
+                )}
+              </div>
+            )}
 
-        <div className="form-group" style={{ margin: '10px 0 0' }}>
-          <label>Observações do Protocolo</label>
-          <textarea
-            value={form.protocol_notes}
-            onChange={e => setForm({ ...form, protocol_notes: e.target.value })}
-            rows={2}
-            placeholder="Informações adicionais sobre o protocolo..."
-          />
-        </div>
+            {/* Lista de protocolos novos */}
+            {protocols.map(proto => (
+              <div key={proto.id} style={{ padding:'10px 12px', background:'#fff', border:'1px solid #e2e8f0', borderRadius:8, marginBottom:8 }}>
+                {editingId === proto.id ? (
+                  <ProtocolItemForm
+                    form={proto}
+                    setForm={updated => setProtocols(prev => prev.map(p=>p.id===proto.id ? {...p,...updated} : p))}
+                    onSubmit={async()=>{
+                      const current = protocols.find(p=>p.id===proto.id) || proto;
+                      setSaving(true);
+                      try {
+                        const updated = await updateProtocol(current.id, current);
+                        setProtocols(prev => prev.map(p=>p.id===current.id ? updated : p));
+                        setEditingId(null);
+                      } catch (err) { setUploadError(err.message); }
+                      finally { setSaving(false); }
+                    }}
+                    onCancel={()=>setEditingId(null)}
+                    submitting={saving}
+                  />
+                ) : (
+                  <>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:6, fontSize:12, color:'#475569', marginBottom:6 }}>
+                      <div><strong>Nº:</strong> {proto.protocol_number||'—'}</div>
+                      <div><strong>Data:</strong> {proto.protocol_date ? new Date(proto.protocol_date).toLocaleDateString('pt-BR') : '—'}</div>
+                      <div><strong>Status:</strong> {PROTOCOL_STATUS_OPTIONS.find(o=>o.value===proto.protocol_status)?.label || proto.protocol_status}</div>
+                    </div>
+                    {proto.protocol_notes && <div style={{ fontSize:12, color:'#64748b', marginBottom:6 }}>{proto.protocol_notes}</div>}
+                    {proto.protocol_file_url && (
+                      <a href={proto.protocol_file_url} target="_blank" rel="noreferrer" style={{ fontSize:12, color:'#16a34a', display:'block', marginBottom:6 }}>Abrir / Baixar anexo</a>
+                    )}
+                    <div style={{ display:'flex', gap:6 }}>
+                      <button type="button" onClick={()=>setEditingId(proto.id)} style={{ padding:'3px 10px', borderRadius:5, fontSize:11, background:'#f1f5f9', border:'none', color:'#475569', cursor:'pointer' }}>Editar</button>
+                      <button type="button" onClick={()=>handleDeleteItem(proto.id)} style={{ padding:'3px 10px', borderRadius:5, fontSize:11, background:'#fee2e2', border:'none', color:'#991b1b', cursor:'pointer' }}>Excluir</button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
 
-        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-          <button type="button" className="btn-secondary" style={{ fontSize: 12, padding: '6px 14px' }} onClick={onClose}>
-            Cancelar
-          </button>
-          <button type="submit" className="btn-primary" style={{ fontSize: 12, padding: '6px 14px' }} disabled={saving || uploadingProto}>
-            {saving ? 'Salvando...' : 'Salvar Protocolo'}
-          </button>
-        </div>
-      </form>
+            {protocols.length === 0 && !hasLegacy && !showAddForm && (
+              <p style={{ fontSize:12, color:'#94a3b8', textAlign:'center', padding:'16px 0' }}>
+                Nenhum protocolo cadastrado. Clique em "+ Adicionar".
+              </p>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

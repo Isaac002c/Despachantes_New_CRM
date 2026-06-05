@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const documentModel = require('../models/documentModels');
+const { requireAdmin } = require('../middlewares/checkPermission');
 
 // GET /api/documents - Listar todos os documentos
 router.get('/', async (req, res) => {
@@ -162,8 +163,8 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE /api/documents/:id - Deletar documento
-router.delete('/:id', async (req, res) => {
+// DELETE /api/documents/:id - Deletar documento (apenas admin)
+router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const tenantId = req.tenantId;

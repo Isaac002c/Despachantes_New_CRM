@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const contractModel = require('../models/contractModels');
-const { checkPermission } = require('../middlewares/checkPermission');
+const { checkPermission, requireAdmin } = require('../middlewares/checkPermission');
 
 // GET /api/contracts/stage-clients — clientes agrupados por macro-etapa
 router.get('/stage-clients', checkPermission('contracts:read'), async (req, res) => {
@@ -72,7 +72,7 @@ router.get('/service/:serviceId', checkPermission('contracts:read'), async (req,
   }
 });
 
-router.get('/', checkPermission('contracts:read'), async (req, res) => {
+router.get('/', requireAdmin, async (req, res) => {
   try {
     const contracts = await contractModel.getAllContracts(req.tenantId);
     res.json({ success: true, data: contracts });

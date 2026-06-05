@@ -41,8 +41,6 @@ export default function Login() {
       
       localStorage.setItem('tenantId', data.tenant?.id || '');
 
-      console.log('[Login] Sucesso!');
-
       router.push('/dashboard');
     } catch (err) {
       setError(err.message);
@@ -101,7 +99,7 @@ export default function Login() {
             marginBottom: '4px',
             letterSpacing: '-0.5px'
           }}>
-            CR Multas
+            CR Recursos
           </h1>
           <p style={{ color: '#d3cfc3', fontSize: '13px', opacity: 0.7 }}>
             Assessoria de Trânsito · Sistema de Gestão

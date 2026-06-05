@@ -19,6 +19,9 @@ import MultasDashboard from '../multas/Dashboard';
 import MultasClients   from '../multas/Clients';
 import MultasHistory   from '../multas/History';
 import MultasLeads     from '../multas/Leads';
+import MultasLeadsList from '../multas/LeadsList';
+import MultasTarefas   from '../multas/Tarefas';
+import MultasApprovals from '../multas/Approvals';
 
 // Settings
 import SettingsPage from '../settings/page';
@@ -53,13 +56,16 @@ const modulePages = {
     pages: {
       dashboard:  MultasDashboard,
       clients:    MultasClients,
-      leads:      MultasLeads,
+      leads:      MultasLeadsList,
+      tarefas:    MultasTarefas,
+      approvals:  MultasApprovals,
+      history:    MultasHistory,
+      // legacy / coming-soon
       defesa:     () => <ComingSoon moduleName="Defesa Prévia" />,
       instancia1: () => <ComingSoon moduleName="1ª Instância" />,
       instancia2: () => <ComingSoon moduleName="2ª Instância" />,
       calendario: () => <ComingSoon moduleName="Calendário" />,
       documents:  () => <ComingSoon moduleName="Documentos" />,
-      history:    MultasHistory,
     },
   },
   settings: {
@@ -166,6 +172,7 @@ function DashboardContent() {
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(v => !v)}
         mobileOpen={mobileSidebarOpen}
+        user={user}
       />
 
       <div className={`shell-main${sidebarCollapsed ? ' sidebar-is-collapsed' : ''}`}>

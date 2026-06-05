@@ -58,7 +58,6 @@ export default function Header({ user, tenant, onLogout }) {
   return (
     <header className="global-header">
       <div className="header-left">
-        {/* Marca CR Multas */}
         <div className="header-logo">
           <div style={{
             display: 'flex',
@@ -83,7 +82,7 @@ export default function Header({ user, tenant, onLogout }) {
           </div>
           <div style={{ marginLeft: '10px' }}>
             <div style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b', lineHeight: 1.2 }}>
-              CR Multas
+              CR Recursos
             </div>
             <div style={{ fontSize: '11px', color: '#94a3b8', lineHeight: 1.2 }}>
               Assessoria de Trânsito

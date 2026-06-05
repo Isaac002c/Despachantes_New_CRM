@@ -98,6 +98,19 @@ router.patch('/:id/status', async (req, res) => {
   }
 });
 
+// POST /api/multas-leads/archive-old — arquiva leads antigos (admin only)
+router.post('/archive-old', async (req, res) => {
+  if (req.userRole !== 'admin') {
+    return res.status(403).json({ success: false, error: 'Apenas administradores podem arquivar leads' });
+  }
+  try {
+    const archived = await model.archiveOldLeads(req.tenantId);
+    res.json({ success: true, data: archived, count: archived.length });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // DELETE /api/multas-leads/:id
 router.delete('/:id', async (req, res) => {
   try {
