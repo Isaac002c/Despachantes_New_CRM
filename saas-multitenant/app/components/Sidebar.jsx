@@ -147,10 +147,23 @@ const modules = [
   { key: 'multas', label: 'Processos' },
 ];
 
+// Mapa de fallback para sessões antigas (sem slug/logo_url no localStorage)
+const TENANT_DEFAULTS = {
+  'carioca-multas': { brand_color: '#4B2882', logo_url: '/logos/carioca-multas.svg', tagline: 'Assessoria de Trânsito' },
+  'cr-recursos':    { brand_color: '#751518', logo_url: '/logos/cr-recursos.png',    tagline: 'Assessoria de Trânsito' },
+};
+
+function deriveSlug(name) {
+  return (name || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, '-');
+}
+
 function TenantLogo({ collapsed, tenant }) {
-  const name    = tenant?.name    || 'Sistema';
-  const logoUrl = tenant?.logo_url || null;
-  const tagline = tenant?.tagline  || 'Sistema de Gestão';
+  const name    = tenant?.name || 'Sistema';
+  const slug    = tenant?.slug || deriveSlug(name);
+  const defaults = TENANT_DEFAULTS[slug] || {};
+  const logoUrl = tenant?.logo_url || defaults.logo_url || null;
+  const tagline = tenant?.tagline  || defaults.tagline  || 'Sistema de Gestão';
+  const brandColor = tenant?.brand_color || defaults.brand_color || '#751518';
   const initial = name.charAt(0).toUpperCase();
 
   return (
@@ -174,7 +187,7 @@ function TenantLogo({ collapsed, tenant }) {
           width: collapsed ? 28 : 34,
           height: collapsed ? 28 : 34,
           borderRadius: '8px',
-          background: tenant?.brand_color || '#751518',
+          background: brandColor,
           color: '#fff',
           alignItems: 'center',
           justifyContent: 'center',
@@ -198,7 +211,7 @@ function TenantLogo({ collapsed, tenant }) {
 export default function Sidebar({ currentModule, currentTab, onNavigate, collapsed, onToggleCollapse, mobileOpen, user, tenant }) {
   const config   = sidebarConfig[currentModule] || sidebarConfig.multas;
   const userRole = user?.role || 'seller';
-  const tenantSlug = tenant?.slug || 'default';
+  const tenantSlug = tenant?.slug || deriveSlug(tenant?.name) || 'default';
 
   // Filtra itens visíveis para a role atual
   const visibleItems = config.items.filter(item =>
