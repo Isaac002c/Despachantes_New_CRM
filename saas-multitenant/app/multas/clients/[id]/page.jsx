@@ -80,7 +80,7 @@ const STATUS_OPTIONS_CRCI = [
   { value: 'FINALIZADO',   label: 'Finalizado' },
 ];
 
-const ORGANS = ['DETRAN', 'DER', 'DNIT', 'SMTR', 'RENAINF', 'PMRJ', 'PREFEITURA UF', 'OUTROS'];
+const ORGANS = ['DETRAN', 'DER', 'DNIT', 'SMTR', 'RENAINF', 'PMRJ', 'PRF', 'PREFEITURA UF', 'OUTROS'];
 
 const STATUS_COLORS = {
   'APRS DEFESA PREVIA':      { bg: '#ede9fe', text: '#6366f1' },

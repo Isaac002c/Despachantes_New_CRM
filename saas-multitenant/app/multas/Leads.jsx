@@ -48,7 +48,7 @@ const COLUMNS = [
 
 const SOURCE_OPTIONS = [
   'Indicação', 'WhatsApp', 'Instagram', 'Site', 'Google',
-  'Facebook', 'Telefone', 'Presencial', 'Outros',
+  'Facebook', 'Telefone', 'Presencial', 'Lista', 'Outros',
 ];
 
 const BLOCKED_STATUSES = ['nao_quer_defender'];
