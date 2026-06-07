@@ -144,47 +144,61 @@ const sidebarConfig = {
 };
 
 const modules = [
-  { key: 'multas', label: 'CR Recursos' },
+  { key: 'multas', label: 'Processos' },
 ];
 
-function CRLogo({ collapsed }) {
+function TenantLogo({ collapsed, tenant }) {
+  const name    = tenant?.name    || 'Sistema';
+  const logoUrl = tenant?.logo_url || null;
+  const tagline = tenant?.tagline  || 'Sistema de Gestão';
+  const initial = name.charAt(0).toUpperCase();
+
   return (
     <div className="sidebar-logo">
       <div className="cr-logo-icon" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/logos/cr-recursos.png"
-          alt="CR Recursos"
-          style={{ height: collapsed ? 28 : 32, width: 'auto', objectFit: 'contain' }}
-          onError={e => {
-            e.currentTarget.style.display = 'none';
-            e.currentTarget.nextElementSibling.style.display = 'block';
-          }}
-        />
-        {/* Fallback SVG quando PNG não encontrado */}
-        <svg width="26" height="22" viewBox="0 0 44 36" fill="none" style={{ display: 'none' }}>
-          <line x1="30" y1="2" x2="30" y2="14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-          <line x1="24" y1="5" x2="36" y2="5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-          <path d="M23 5 Q21 9 23 11 Q25 13 27 11 Q29 9 27 5" fill="none" stroke="currentColor" strokeWidth="1.4"/>
-          <path d="M33 5 Q31 9 33 11 Q35 13 37 11 Q39 9 37 5" fill="none" stroke="currentColor" strokeWidth="1.4"/>
-          <path d="M2 24 L4 19 Q6 16 9 16 L12 14 Q14 13 18 13 L26 14 Q27 14 28 16 L31 19 L33 24 Q33 27 31 27 L5 27 Q2 27 2 24Z" fill="currentColor" opacity="0.9"/>
-          <circle cx="9" cy="27" r="3" fill="currentColor" opacity="0.7"/>
-          <circle cx="25" cy="27" r="3" fill="currentColor" opacity="0.7"/>
-        </svg>
+        {logoUrl ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={logoUrl}
+            alt={name}
+            style={{ height: collapsed ? 28 : 34, width: 'auto', objectFit: 'contain', borderRadius: '6px' }}
+            onError={e => {
+              e.currentTarget.style.display = 'none';
+              e.currentTarget.nextElementSibling.style.display = 'flex';
+            }}
+          />
+        ) : null}
+        {/* Fallback: initial letter */}
+        <div style={{
+          display: logoUrl ? 'none' : 'flex',
+          width: collapsed ? 28 : 34,
+          height: collapsed ? 28 : 34,
+          borderRadius: '8px',
+          background: tenant?.brand_color || '#751518',
+          color: '#fff',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: collapsed ? 14 : 16,
+          fontWeight: 800,
+          flexShrink: 0,
+        }}>
+          {initial}
+        </div>
       </div>
       {!collapsed && (
         <div className="sidebar-brand">
-          <span className="sidebar-brand-name">CR Recursos</span>
-          <span className="sidebar-brand-sub">Assessoria de Trânsito</span>
+          <span className="sidebar-brand-name">{name}</span>
+          <span className="sidebar-brand-sub">{tagline}</span>
         </div>
       )}
     </div>
   );
 }
 
-export default function Sidebar({ currentModule, currentTab, onNavigate, collapsed, onToggleCollapse, mobileOpen, user }) {
+export default function Sidebar({ currentModule, currentTab, onNavigate, collapsed, onToggleCollapse, mobileOpen, user, tenant }) {
   const config   = sidebarConfig[currentModule] || sidebarConfig.multas;
   const userRole = user?.role || 'seller';
+  const tenantSlug = tenant?.slug || 'default';
 
   // Filtra itens visíveis para a role atual
   const visibleItems = config.items.filter(item =>
@@ -195,11 +209,12 @@ export default function Sidebar({ currentModule, currentTab, onNavigate, collaps
     'sidebar',
     collapsed ? 'sidebar-collapsed' : '',
     mobileOpen ? 'sidebar-mobile-open' : '',
+    `tenant-${tenantSlug}`,
   ].filter(Boolean).join(' ');
 
   return (
     <aside className={classes}>
-      <CRLogo collapsed={collapsed} />
+      <TenantLogo collapsed={collapsed} tenant={tenant} />
 
       {collapsed && <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', flexShrink: 0 }} />}
 

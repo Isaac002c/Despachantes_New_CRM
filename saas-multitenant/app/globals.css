@@ -4376,6 +4376,71 @@ html, body {
 }
 
 /* ============================================
+   TEMA POR TENANT — Overrides de cor
+   ============================================ */
+
+/* Carioca Multas — tema roxo/púrpura */
+.sidebar.tenant-carioca-multas {
+  background: #0d0920;
+}
+
+.sidebar.tenant-carioca-multas .sidebar-brand-name {
+  color: #e2d9f3;
+}
+
+.sidebar.tenant-carioca-multas .sidebar-brand-sub {
+  color: #6b5b8a;
+}
+
+.sidebar.tenant-carioca-multas .sidebar-section-label {
+  color: #3d2760;
+}
+
+.sidebar.tenant-carioca-multas .sidebar-item {
+  color: #7a5ca0;
+}
+
+.sidebar.tenant-carioca-multas .sidebar-item:hover {
+  background: rgba(75, 40, 130, 0.18);
+  color: #c4a8e8;
+}
+
+.sidebar.tenant-carioca-multas .sidebar-item.active {
+  background: rgba(75, 40, 130, 0.28);
+  color: #daccf0;
+}
+
+.sidebar.tenant-carioca-multas .sidebar-item.active .sidebar-item-icon {
+  color: #daccf0;
+}
+
+.sidebar.tenant-carioca-multas .sidebar-module-btn.active {
+  background: rgba(75, 40, 130, 0.22);
+  color: #c4a8e8;
+}
+
+.sidebar.tenant-carioca-multas .sidebar-item-settings {
+  color: #5a4a7a;
+}
+
+.sidebar.tenant-carioca-multas .sidebar-footer-email {
+  color: #9b7dd4;
+}
+
+.sidebar.tenant-carioca-multas .sidebar-footer-email:hover {
+  color: #c4a8e8;
+}
+
+.sidebar.tenant-carioca-multas .sidebar-collapse-btn {
+  color: #6b5a8a;
+}
+
+.sidebar.tenant-carioca-multas .sidebar-collapse-btn:hover {
+  background: rgba(75, 40, 130, 0.2);
+  color: #c4a8e8;
+}
+
+/* ============================================
    CLIENTS PAGE — Estilos
    ============================================ */
 

@@ -173,6 +173,7 @@ function DashboardContent() {
         onToggleCollapse={() => setSidebarCollapsed(v => !v)}
         mobileOpen={mobileSidebarOpen}
         user={user}
+        tenant={tenant}
       />
 
       <div className={`shell-main${sidebarCollapsed ? ' sidebar-is-collapsed' : ''}`}>

@@ -97,7 +97,9 @@ router.post('/login',
       // Busca todos os usuários com esse e-mail (multi-tenant: pode haver mais de um)
       const result = await client.query(
         `SELECT u.id, u.name, u.email, u.password_hash, u.tenant_id, u.role,
-                t.name as tenant_name
+                t.name as tenant_name, t.slug as tenant_slug,
+                t.logo_url as tenant_logo_url, t.brand_color as tenant_brand_color,
+                t.brand_color_dark as tenant_brand_color_dark, t.tagline as tenant_tagline
          FROM users u
          JOIN tenants t ON u.tenant_id = t.id
          WHERE u.email = $1
@@ -161,7 +163,12 @@ router.post('/login',
         },
         tenant: {
           id: user.tenant_id,
-          name: user.tenant_name
+          name: user.tenant_name,
+          slug: user.tenant_slug || 'default',
+          logo_url: user.tenant_logo_url || null,
+          brand_color: user.tenant_brand_color || '#751518',
+          brand_color_dark: user.tenant_brand_color_dark || '#050708',
+          tagline: user.tenant_tagline || 'Assessoria de Trânsito'
         }
       });
     } catch (err) {
