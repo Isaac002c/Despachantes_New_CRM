@@ -17,7 +17,7 @@ const ALL_STATUSES = [
   { value: 'perdido',           label: 'Perdido',              color: '#94a3b8' },
 ];
 
-const SOURCE_OPTIONS = ['Indicação','WhatsApp','Instagram','Site','Google','Facebook','Telefone','Presencial','Outros'];
+const SOURCE_OPTIONS = ['Indicação','WhatsApp','Instagram','Site','Google','Facebook','Telefone','Presencial','Lista','Outros'];
 const BLOCKED_STATUSES = ['nao_quer_defender'];
 const MOTIVO_LABELS = { nao_quer_defender: 'Motivo de Não Querer se Defender' };
 
