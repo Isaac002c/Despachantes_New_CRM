@@ -1240,6 +1240,53 @@ export default function ClientDetail() {
   );
 }
 
+// ─── Formulário de item de protocolo (fora do ProtocolPanel para evitar remount) ─
+function ProtocolItemForm({ form, setForm, onSubmit, onCancel, submitting, uploadingId, uploadError, handleFileUpload }) {
+  return (
+    <div style={{ padding:'12px', background:'#f8fafc', borderRadius:8, border:'1px solid #e2e8f0', marginBottom:8 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:8 }}>
+        <div><label style={{ fontSize:11, color:'#64748b', display:'block', marginBottom:3 }}>Número</label>
+          <input type="text" value={form.protocol_number||''} onChange={e=>setForm(p=>({...p,protocol_number:e.target.value}))} placeholder="Ex.: 2024/00123" style={{ width:'100%', padding:'6px 8px', border:'1px solid #e2e8f0', borderRadius:6, fontSize:12 }} />
+        </div>
+        <div><label style={{ fontSize:11, color:'#64748b', display:'block', marginBottom:3 }}>Data</label>
+          <input type="date" value={form.protocol_date||''} onChange={e=>setForm(p=>({...p,protocol_date:e.target.value}))} style={{ width:'100%', padding:'6px 8px', border:'1px solid #e2e8f0', borderRadius:6, fontSize:12 }} />
+        </div>
+        <div><label style={{ fontSize:11, color:'#64748b', display:'block', marginBottom:3 }}>Status</label>
+          <select value={form.protocol_status||'protocolado'} onChange={e=>setForm(p=>({...p,protocol_status:e.target.value}))} style={{ width:'100%', padding:'6px 8px', border:'1px solid #e2e8f0', borderRadius:6, fontSize:12, background:'#fff' }}>
+            {PROTOCOL_STATUS_OPTIONS.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+      </div>
+      <div style={{ marginBottom:8 }}>
+        <label style={{ fontSize:11, color:'#64748b', display:'block', marginBottom:3 }}>Observações</label>
+        <textarea value={form.protocol_notes||''} onChange={e=>setForm(p=>({...p,protocol_notes:e.target.value}))} rows={2} placeholder="Observações..." style={{ width:'100%', padding:'6px 8px', border:'1px solid #e2e8f0', borderRadius:6, fontSize:12, resize:'vertical' }} />
+      </div>
+      <div style={{ marginBottom:8 }}>
+        <label style={{ fontSize:11, color:'#64748b', display:'block', marginBottom:3 }}>Anexo</label>
+        {form.protocol_file_url ? (
+          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 10px', background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:6 }}>
+            <a href={form.protocol_file_url} target="_blank" rel="noreferrer" style={{ color:'#16a34a', fontSize:12, flex:1 }}>Abrir / Baixar</a>
+            <button type="button" onClick={()=>setForm(p=>({...p,protocol_file_url:''}))} style={{ border:'none', background:'none', cursor:'pointer', color:'#ef4444', fontSize:11 }}>Remover</button>
+          </div>
+        ) : (
+          <label style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 10px', background:'#fff', border:'1px dashed #cbd5e1', borderRadius:6, cursor:'pointer' }}>
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display:'none' }} onChange={e=>handleFileUpload(e, setForm)} disabled={uploadingId==='uploading'} />
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <span style={{ fontSize:11, color:'#94a3b8' }}>{uploadingId==='uploading'?'Enviando...':'Anexar PDF, JPG ou PNG (máx. 10 MB)'}</span>
+          </label>
+        )}
+      </div>
+      {uploadError && <p style={{ color:'#ef4444', fontSize:11, margin:'4px 0' }}>{uploadError}</p>}
+      <div style={{ display:'flex', gap:6, justifyContent:'flex-end' }}>
+        {onCancel && <button type="button" onClick={onCancel} style={{ padding:'5px 12px', borderRadius:6, fontSize:12, background:'#fff', border:'1px solid #e2e8f0', color:'#475569', cursor:'pointer' }}>Cancelar</button>}
+        <button type="button" onClick={onSubmit} disabled={submitting} style={{ padding:'5px 12px', borderRadius:6, fontSize:12, background:'#751518', border:'none', color:'#fff', cursor:'pointer' }}>
+          {submitting?'Salvando...':'Salvar'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Componente de Protocolo inline (múltiplos protocolos) ─────────────────────
 
 function ProtocolPanel({ contract, onSave, onClose }) {
@@ -1305,49 +1352,6 @@ function ProtocolPanel({ contract, onSave, onClose }) {
   // Protocolo legado (fines.protocol_*) — exibe como item read-only se tiver dados
   const hasLegacy = !!(contract.protocol_number || contract.protocol_date || contract.protocol_file_url);
 
-  const ProtocolItemForm = ({ form, setForm, onSubmit, onCancel, submitting }) => (
-    <div style={{ padding:'12px', background:'#f8fafc', borderRadius:8, border:'1px solid #e2e8f0', marginBottom:8 }}>
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:8 }}>
-        <div><label style={{ fontSize:11, color:'#64748b', display:'block', marginBottom:3 }}>Número</label>
-          <input type="text" value={form.protocol_number} onChange={e=>setForm(p=>({...p,protocol_number:e.target.value}))} placeholder="Ex.: 2024/00123" style={{ width:'100%', padding:'6px 8px', border:'1px solid #e2e8f0', borderRadius:6, fontSize:12 }} />
-        </div>
-        <div><label style={{ fontSize:11, color:'#64748b', display:'block', marginBottom:3 }}>Data</label>
-          <input type="date" value={form.protocol_date} onChange={e=>setForm(p=>({...p,protocol_date:e.target.value}))} style={{ width:'100%', padding:'6px 8px', border:'1px solid #e2e8f0', borderRadius:6, fontSize:12 }} />
-        </div>
-        <div><label style={{ fontSize:11, color:'#64748b', display:'block', marginBottom:3 }}>Status</label>
-          <select value={form.protocol_status} onChange={e=>setForm(p=>({...p,protocol_status:e.target.value}))} style={{ width:'100%', padding:'6px 8px', border:'1px solid #e2e8f0', borderRadius:6, fontSize:12, background:'#fff' }}>
-            {PROTOCOL_STATUS_OPTIONS.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-        </div>
-      </div>
-      <div style={{ marginBottom:8 }}>
-        <label style={{ fontSize:11, color:'#64748b', display:'block', marginBottom:3 }}>Observações</label>
-        <textarea value={form.protocol_notes} onChange={e=>setForm(p=>({...p,protocol_notes:e.target.value}))} rows={2} placeholder="Observações..." style={{ width:'100%', padding:'6px 8px', border:'1px solid #e2e8f0', borderRadius:6, fontSize:12, resize:'vertical' }} />
-      </div>
-      <div style={{ marginBottom:8 }}>
-        <label style={{ fontSize:11, color:'#64748b', display:'block', marginBottom:3 }}>Anexo</label>
-        {form.protocol_file_url ? (
-          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 10px', background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:6 }}>
-            <a href={form.protocol_file_url} target="_blank" rel="noreferrer" style={{ color:'#16a34a', fontSize:12, flex:1 }}>Abrir / Baixar</a>
-            <button type="button" onClick={()=>setForm(p=>({...p,protocol_file_url:''}))} style={{ border:'none', background:'none', cursor:'pointer', color:'#ef4444', fontSize:11 }}>Remover</button>
-          </div>
-        ) : (
-          <label style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 10px', background:'#fff', border:'1px dashed #cbd5e1', borderRadius:6, cursor:'pointer' }}>
-            <input type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display:'none' }} onChange={e=>handleFileUpload(e, setForm)} disabled={uploadingId==='uploading'} />
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <span style={{ fontSize:11, color:'#94a3b8' }}>{uploadingId==='uploading'?'Enviando...':'Anexar PDF, JPG ou PNG (máx. 10 MB)'}</span>
-          </label>
-        )}
-      </div>
-      {uploadError && <p style={{ color:'#ef4444', fontSize:11, margin:'4px 0' }}>{uploadError}</p>}
-      <div style={{ display:'flex', gap:6, justifyContent:'flex-end' }}>
-        {onCancel && <button type="button" onClick={onCancel} style={{ padding:'5px 12px', borderRadius:6, fontSize:12, background:'#fff', border:'1px solid #e2e8f0', color:'#475569', cursor:'pointer' }}>Cancelar</button>}
-        <button type="button" onClick={onSubmit} disabled={submitting} style={{ padding:'5px 12px', borderRadius:6, fontSize:12, background:'#751518', border:'none', color:'#fff', cursor:'pointer' }}>
-          {submitting?'Salvando...':'Salvar'}
-        </button>
-      </div>
-    </div>
-  );
 
   return (
     <div className="cd-protocol-panel">
@@ -1382,6 +1386,7 @@ function ProtocolPanel({ contract, onSave, onClose }) {
                 form={newForm} setForm={setNewForm}
                 onSubmit={handleAdd} onCancel={()=>setShowAddForm(false)}
                 submitting={saving}
+                uploadingId={uploadingId} uploadError={uploadError} handleFileUpload={handleFileUpload}
               />
             )}
 
@@ -1410,7 +1415,11 @@ function ProtocolPanel({ contract, onSave, onClose }) {
                 {editingId === proto.id ? (
                   <ProtocolItemForm
                     form={proto}
-                    setForm={updated => setProtocols(prev => prev.map(p=>p.id===proto.id ? {...p,...updated} : p))}
+                    setForm={updater => setProtocols(prev => prev.map(p =>
+                      p.id === proto.id
+                        ? (typeof updater === 'function' ? updater(p) : { ...p, ...updater })
+                        : p
+                    ))}
                     onSubmit={async()=>{
                       const current = protocols.find(p=>p.id===proto.id) || proto;
                       setSaving(true);
@@ -1423,6 +1432,7 @@ function ProtocolPanel({ contract, onSave, onClose }) {
                     }}
                     onCancel={()=>setEditingId(null)}
                     submitting={saving}
+                    uploadingId={uploadingId} uploadError={uploadError} handleFileUpload={handleFileUpload}
                   />
                 ) : (
                   <>
