@@ -123,7 +123,10 @@ const getServiceLabel = (value) =>
 
 const getPrazoStyle = (due_date) => {
   if (!due_date) return { color: '#94a3b8' };
-  const diffDays = Math.ceil((new Date(due_date) - new Date()) / 86400000);
+  // Parseia como data local (meio-dia) para evitar shift de timezone com strings ISO
+  const [y, m, d] = String(due_date).substring(0, 10).split('-');
+  const prazo = new Date(+y, +m - 1, +d, 12, 0, 0);
+  const diffDays = Math.ceil((prazo - new Date()) / 86400000);
   if (diffDays < 0)  return { color: '#ef4444', fontWeight: 600 };
   if (diffDays <= 7) return { color: '#f59e0b', fontWeight: 600 };
   return { color: '#16a34a' };
@@ -131,7 +134,14 @@ const getPrazoStyle = (due_date) => {
 
 // ─── Helpers ─────────────────────────────────────────
 
-const formatDate = (v) => (!v ? '—' : new Date(v).toLocaleDateString('pt-BR'));
+// Formata campo date-only (YYYY-MM-DD) para dd/mm/aaaa sem conversão de timezone
+const formatDate = (v) => {
+  if (!v) return '—';
+  const s = String(v).substring(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return '—';
+  const [y, m, d] = s.split('-');
+  return `${d}/${m}/${y}`;
+};
 const formatCPF  = (v) => (v ? v.replace(/\D/g, '') || '—' : '—');
 const toInputDate = (v) => (!v ? '' : v.substring(0, 10));
 
@@ -728,9 +738,7 @@ export default function ClientDetail() {
                               <td>{label}</td>
                             )}
                             <td style={{ fontSize: 13, ...getPrazoStyle(contract.due_date) }}>
-                              {contract.due_date
-                                ? new Date(contract.due_date).toLocaleDateString('pt-BR')
-                                : '—'}
+                              {formatDate(contract.due_date)}
                             </td>
                             <td>
                               <span className="service-status-badge" style={getStatusStyle(contract.status)}>
@@ -1399,7 +1407,7 @@ function ProtocolPanel({ contract, onSave, onClose }) {
                 </div>
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:6, fontSize:12, color:'#475569' }}>
                   <div><strong>Nº:</strong> {contract.protocol_number||'—'}</div>
-                  <div><strong>Data:</strong> {contract.protocol_date ? new Date(contract.protocol_date).toLocaleDateString('pt-BR') : '—'}</div>
+                  <div><strong>Data:</strong> {formatDate(contract.protocol_date)}</div>
                   <div><strong>Status:</strong> {contract.protocol_status||'—'}</div>
                 </div>
                 {contract.protocol_notes && <div style={{ fontSize:12, color:'#64748b', marginTop:4 }}>{contract.protocol_notes}</div>}
@@ -1438,7 +1446,7 @@ function ProtocolPanel({ contract, onSave, onClose }) {
                   <>
                     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:6, fontSize:12, color:'#475569', marginBottom:6 }}>
                       <div><strong>Nº:</strong> {proto.protocol_number||'—'}</div>
-                      <div><strong>Data:</strong> {proto.protocol_date ? new Date(proto.protocol_date).toLocaleDateString('pt-BR') : '—'}</div>
+                      <div><strong>Data:</strong> {formatDate(proto.protocol_date)}</div>
                       <div><strong>Status:</strong> {PROTOCOL_STATUS_OPTIONS.find(o=>o.value===proto.protocol_status)?.label || proto.protocol_status}</div>
                     </div>
                     {proto.protocol_notes && <div style={{ fontSize:12, color:'#64748b', marginBottom:6 }}>{proto.protocol_notes}</div>}

@@ -38,9 +38,14 @@ const createClient = async ({
 };
 
 // READ - Listar todos os clientes do tenant
+// LIMIT 500: proteção de performance; se ultrapassar esse volume, implementar paginação real
 const getAllClients = async (tenant_id) => {
   const result = await pool.query(
-    `SELECT * FROM clients WHERE tenant_id = $1 ORDER BY name ASC`,
+    `SELECT id, tenant_id, name, cpf, cnh, first_cnh, birth_date, phone, email, status, created_at
+     FROM clients
+     WHERE tenant_id = $1
+     ORDER BY name ASC
+     LIMIT 500`,
     [tenant_id]
   );
   return result.rows;
@@ -67,8 +72,9 @@ const getClientByCPF = async (cpf, tenant_id) => {
 // READ - Pesquisar clientes
 const searchClients = async (tenant_id, searchTerm) => {
   const result = await pool.query(
-    `SELECT * FROM clients 
-     WHERE tenant_id = $1 
+    `SELECT id, tenant_id, name, cpf, cnh, first_cnh, birth_date, phone, email, status, created_at
+     FROM clients
+     WHERE tenant_id = $1
        AND (name ILIKE $2 OR cpf ILIKE $2 OR cnh ILIKE $2 OR phone ILIKE $2)
      ORDER BY name ASC
      LIMIT 50`,
