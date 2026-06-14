@@ -5208,6 +5208,52 @@ html, body {
 }
 
 /* ============================================
+   AGENDA DE PRAZOS
+   ============================================ */
+.ag-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:20px; flex-wrap:wrap; }
+.ag-head-title { font-size:20px; font-weight:700; color:#1e293b; letter-spacing:-0.2px; }
+.ag-head-sub { font-size:13px; color:#64748b; margin-top:4px; }
+.ag-refresh { display:inline-flex; align-items:center; gap:7px; padding:8px 14px; border-radius:8px; border:1px solid #e2e8f0; background:#fff; color:#475569; font-size:13px; font-weight:600; cursor:pointer; transition:background .15s, border-color .15s, color .15s; }
+.ag-refresh:hover:not(:disabled) { background:var(--cr-wine-light); border-color:var(--cr-wine); color:var(--cr-wine); }
+.ag-refresh:disabled { opacity:.55; cursor:default; }
+.ag-refresh svg { transition:transform .4s; }
+.ag-refresh:hover:not(:disabled) svg { transform:rotate(90deg); }
+
+.ag-card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; }
+.ag-card-head { display:flex; align-items:center; gap:10px; padding:14px 18px; border-bottom:1px solid #f1f5f9; border-left:3px solid var(--accent,#94a3b8); }
+.ag-card-dot { width:9px; height:9px; border-radius:50%; background:var(--accent,#94a3b8); flex-shrink:0; }
+.ag-card-title { font-size:14px; font-weight:700; color:#1e293b; }
+.ag-card-count { margin-left:auto; font-size:12px; font-weight:700; background:var(--accent-soft,#f1f5f9); color:var(--accent,#475569); padding:2px 11px; border-radius:999px; min-width:26px; text-align:center; }
+.ag-list { display:flex; flex-direction:column; }
+
+.ag-item { display:flex; align-items:center; gap:13px; padding:12px 18px; cursor:pointer; border-bottom:1px solid #f4f6f9; transition:background .14s; }
+.ag-item:last-child { border-bottom:none; }
+.ag-item:hover { background:#f8fafc; }
+.ag-ava { width:38px; height:38px; border-radius:10px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:15px; }
+.ag-itembody { flex:1; min-width:0; }
+.ag-name { font-size:14px; font-weight:600; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ag-meta { font-size:12px; color:#94a3b8; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ag-right { text-align:right; flex-shrink:0; display:flex; flex-direction:column; align-items:flex-end; gap:5px; padding-left:8px; }
+.ag-date { font-size:13px; font-weight:600; color:#334155; }
+.ag-pill { font-size:11px; font-weight:700; padding:2px 9px; border-radius:999px; white-space:nowrap; }
+.ag-empty { display:flex; flex-direction:column; align-items:center; gap:8px; padding:28px 18px; text-align:center; color:#94a3b8; font-size:13px; }
+
+.ag-aside-card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px 18px; }
+.ag-aside-title { font-size:11px; font-weight:700; color:#94a3b8; letter-spacing:.6px; text-transform:uppercase; margin-bottom:6px; }
+.ag-aside-row { display:flex; align-items:center; justify-content:space-between; padding:9px 0; }
+.ag-aside-row + .ag-aside-row { border-top:1px solid #f4f6f9; }
+.ag-aside-lbl { display:flex; align-items:center; gap:9px; font-size:13px; color:#475569; }
+.ag-aside-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.ag-aside-val { font-size:17px; font-weight:800; line-height:1; }
+.ag-legend { font-size:11px; color:#94a3b8; line-height:1.9; margin-top:2px; }
+
+@media (max-width: 680px) {
+  .ag-item { padding:11px 14px; gap:11px; }
+  .ag-ava { width:34px; height:34px; font-size:14px; border-radius:9px; }
+  .ag-card-head { padding:13px 14px; }
+}
+
+/* ============================================
    DASHBOARD — Row 2: Stage Cards (clicáveis)
    ============================================ */
 

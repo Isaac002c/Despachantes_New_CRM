@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getDeadlines } from '../lib/contractsAPI';
 
-// ─── Helpers de data (date-only, sem shift de fuso) ─────────────────────────────
+// ─── Datas (date-only, sem shift de fuso) ───────────────────────────────────────
 
 const parseDateOnly = (v) => {
   if (!v) return null;
@@ -15,8 +15,7 @@ const parseDateOnly = (v) => {
 
 const fmtDate = (v) => {
   const dt = parseDateOnly(v);
-  if (!dt) return '—';
-  return dt.toLocaleDateString('pt-BR');
+  return dt ? dt.toLocaleDateString('pt-BR') : '—';
 };
 
 const diffDays = (v) => {
@@ -30,82 +29,80 @@ const diffDays = (v) => {
 const prazoLabel = (v) => {
   const d = diffDays(v);
   if (d == null) return '';
-  if (d === 0)  return 'vence hoje';
-  if (d < 0)    return `venceu há ${Math.abs(d)} dia${Math.abs(d) !== 1 ? 's' : ''}`;
+  if (d === 0) return 'vence hoje';
+  if (d < 0)   return `venceu há ${Math.abs(d)} dia${Math.abs(d) !== 1 ? 's' : ''}`;
   return `vence em ${d} dia${d !== 1 ? 's' : ''}`;
+};
+
+// Cor por urgência (mantém vermelho p/ vencido, amarelo/laranja p/ próximos)
+const urgencyOf = (v, overdue) => {
+  const d = diffDays(v);
+  if (overdue && d === 0)               return { color: '#ea580c', soft: '#ffedd5' }; // vence hoje
+  if (overdue || (d != null && d < 0))  return { color: '#dc2626', soft: '#fee2e2' }; // vencido
+  if (d != null && d <= 7)              return { color: '#d97706', soft: '#fef3c7' }; // até 7 dias
+  return { color: '#475569', soft: '#f1f5f9' };                                       // mais distante
 };
 
 // ─── Item da agenda ─────────────────────────────────────────────────────────────
 
 function DeadlineItem({ item, overdue, onOpen }) {
-  const accent = overdue ? '#ef4444' : '#f59e0b';
+  const u = urgencyOf(item.due_date, overdue);
+  const meta = [item.numero_multa, item.vehicle_plate, item.organ].filter(Boolean).join(' · ');
   return (
-    <div
-      onClick={onOpen}
-      role="button"
-      tabIndex={0}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        padding: '12px 14px',
-        borderLeft: `3px solid ${accent}`,
-        background: '#fff',
-        border: '1px solid #e2e8f0',
-        borderLeftWidth: 3,
-        borderRadius: 8,
-        cursor: 'pointer',
-      }}
-    >
-      <div style={{
-        flexShrink: 0, width: 40, height: 40, borderRadius: 8,
-        background: `${accent}18`, color: accent,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700,
-      }}>
+    <div className="ag-item" onClick={onOpen} role="button" tabIndex={0}>
+      <div className="ag-ava" style={{ background: u.soft, color: u.color }}>
         {(item.client_name || '?').charAt(0).toUpperCase()}
       </div>
-
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 600, color: '#1e293b', fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {item.client_name || 'Cliente'}
-        </div>
-        <div style={{ color: '#64748b', fontSize: 12, marginTop: 2 }}>
-          {[item.numero_multa, item.vehicle_plate, item.organ].filter(Boolean).join(' · ') || '—'}
-        </div>
+      <div className="ag-itembody">
+        <div className="ag-name">{item.client_name || 'Cliente'}</div>
+        <div className="ag-meta">{meta || '—'}</div>
       </div>
-
-      <div style={{ textAlign: 'right', flexShrink: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>{fmtDate(item.due_date)}</div>
-        <div style={{ fontSize: 11, fontWeight: 600, color: accent, marginTop: 2 }}>{prazoLabel(item.due_date)}</div>
+      <div className="ag-right">
+        <span className="ag-date">{fmtDate(item.due_date)}</span>
+        <span className="ag-pill" style={{ background: u.soft, color: u.color }}>{prazoLabel(item.due_date)}</span>
       </div>
     </div>
   );
 }
 
-function Section({ title, color, items, overdue, onOpen }) {
+// ─── Seção (lista) ──────────────────────────────────────────────────────────────
+
+function Section({ title, color, soft, items, overdue, emptyText, onOpen }) {
   return (
-    <div className="md-section-card" style={{ marginBottom: 16 }}>
-      <div className="md-section-header" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ width: 10, height: 10, borderRadius: '50%', background: color, display: 'inline-block' }} />
-        <h3 className="md-section-title">{title}</h3>
-        <span style={{
-          marginLeft: 'auto', fontSize: 12, fontWeight: 700,
-          background: `${color}18`, color, padding: '2px 10px', borderRadius: 999,
-        }}>
-          {items.length}
-        </span>
+    <div className="ag-card">
+      <div className="ag-card-head" style={{ '--accent': color, '--accent-soft': soft }}>
+        <span className="ag-card-dot" />
+        <span className="ag-card-title">{title}</span>
+        <span className="ag-card-count">{items.length}</span>
       </div>
-      <div className="md-section-body">
-        {items.length === 0 ? (
-          <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>Nenhum prazo nesta seção.</p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {items.map((it) => (
-              <DeadlineItem key={it.id} item={it} overdue={overdue} onOpen={() => onOpen(it)} />
-            ))}
-          </div>
-        )}
-      </div>
+      {items.length === 0 ? (
+        <div className="ag-empty">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+          {emptyText}
+        </div>
+      ) : (
+        <div className="ag-list">
+          {items.map((it) => (
+            <DeadlineItem key={it.id} item={it} overdue={overdue} onOpen={() => onOpen(it)} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Linha do resumo (coluna direita) ───────────────────────────────────────────
+
+function ResumoRow({ label, value, color }) {
+  return (
+    <div className="ag-aside-row">
+      <span className="ag-aside-lbl">
+        <span className="ag-aside-dot" style={{ background: color }} />
+        {label}
+      </span>
+      <span className="ag-aside-val" style={{ color }}>{value}</span>
     </div>
   );
 }
@@ -139,6 +136,12 @@ export default function MultasAgenda() {
     if (it?.client_id) router.push(`/multas/clients/${it.client_id}`);
   };
 
+  const total = overdue.length + upcoming.length;
+  const prox7 = upcoming.filter((it) => {
+    const d = diffDays(it.due_date);
+    return d != null && d <= 7;
+  }).length;
+
   if (loading) return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 0', gap: 14 }}>
       <div className="loading-spinner" style={{ width: 32, height: 32, border: '3px solid #e2e8f0', borderTopColor: '#751518' }} />
@@ -147,12 +150,19 @@ export default function MultasAgenda() {
   );
 
   return (
-    <div style={{ maxWidth: 760 }}>
-      <div style={{ marginBottom: 18 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1e293b', margin: 0 }}>Agenda de Prazos</h2>
-        <p style={{ color: '#64748b', fontSize: 13, margin: '4px 0 0' }}>
-          Prazos vencidos e próximos 30 dias dos seus processos.
-        </p>
+    <div className="ag-page">
+      <div className="ag-head">
+        <div>
+          <h2 className="ag-head-title">Agenda de Prazos</h2>
+          <p className="ag-head-sub">Prazos vencidos e próximos 30 dias dos seus processos.</p>
+        </div>
+        <button className="ag-refresh" onClick={load} disabled={loading}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
+          Atualizar
+        </button>
       </div>
 
       {error && (
@@ -161,8 +171,41 @@ export default function MultasAgenda() {
         </div>
       )}
 
-      <Section title="Vencidos"        color="#ef4444" items={overdue}  overdue       onOpen={openClient} />
-      <Section title="Próximos prazos" color="#f59e0b" items={upcoming} overdue={false} onOpen={openClient} />
+      <div className="md-layout">
+        <div className="md-main">
+          <Section
+            title="Vencidos" color="#dc2626" soft="#fee2e2"
+            items={overdue} overdue
+            emptyText="Nenhum prazo vencido."
+            onOpen={openClient}
+          />
+          <Section
+            title="Próximos prazos" color="#d97706" soft="#fef3c7"
+            items={upcoming} overdue={false}
+            emptyText="Nenhum prazo nos próximos 30 dias."
+            onOpen={openClient}
+          />
+        </div>
+
+        <aside className="md-sidebar">
+          <div className="ag-aside-card">
+            <div className="ag-aside-title">Resumo</div>
+            <ResumoRow label="Total de prazos"  value={total}           color="#475569" />
+            <ResumoRow label="Vencidos"         value={overdue.length}  color="#dc2626" />
+            <ResumoRow label="Vence em 7 dias"  value={prox7}           color="#d97706" />
+            <ResumoRow label="Próximos 30 dias" value={upcoming.length} color="#0f172a" />
+          </div>
+          <div className="ag-aside-card">
+            <div className="ag-aside-title">Legenda</div>
+            <p className="ag-legend">
+              <strong style={{ color: '#dc2626' }}>Vermelho</strong> — vencido<br />
+              <strong style={{ color: '#ea580c' }}>Laranja</strong> — vence hoje<br />
+              <strong style={{ color: '#d97706' }}>Amarelo</strong> — vence em até 7 dias<br />
+              <strong style={{ color: '#475569' }}>Cinza</strong> — mais distante
+            </p>
+          </div>
+        </aside>
+      </div>
     </div>
   );
 }
