@@ -61,14 +61,14 @@ export default function Login() {
     }}>
       <div style={{
         background: 'rgba(255,255,255,0.03)',
-        border: '1px solid rgba(59,130,246,0.2)',
+        border: '1px solid rgba(117,21,24,0.25)',
         padding: '48px 40px',
         borderRadius: '16px',
-        boxShadow: '0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(59,130,246,0.08)',
+        boxShadow: '0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(117,21,24,0.12)',
         width: '100%',
         maxWidth: '420px'
       }}>
-        {/* Logo ChronosTek */}
+        {/* Marca CR Recursos — usa /logos/cr-recursos.png (ou .svg) se existir; senão, monograma seguro */}
         <div style={{ textAlign: 'center', marginBottom: '36px' }}>
           <div style={{
             display: 'inline-flex',
@@ -80,10 +80,30 @@ export default function Login() {
           }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/logoChronosTech.png"
-              alt="ChronosTek"
-              style={{ width: '80px', height: '80px', objectFit: 'contain', filter: 'drop-shadow(0 0 12px rgba(59,130,246,0.5))' }}
+              src="/logos/cr-recursos.png"
+              alt="CR Recursos"
+              style={{ width: '80px', height: '80px', objectFit: 'contain', filter: 'drop-shadow(0 0 12px rgba(117,21,24,0.5))' }}
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                if (e.currentTarget.nextElementSibling) e.currentTarget.nextElementSibling.style.display = 'flex';
+              }}
             />
+            {/* Fallback seguro: monograma vinho (não depende de arquivo) */}
+            <div style={{
+              display: 'none',
+              width: '80px',
+              height: '80px',
+              borderRadius: '16px',
+              background: '#751518',
+              color: '#fff',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '30px',
+              fontWeight: 800,
+              letterSpacing: '-1px',
+            }}>
+              CR
+            </div>
           </div>
           <h1 style={{
             fontSize: '26px',
@@ -92,10 +112,10 @@ export default function Login() {
             marginBottom: '4px',
             letterSpacing: '-0.5px'
           }}>
-            ChronosTek
+            CR Recursos
           </h1>
           <p style={{ color: '#64748b', fontSize: '13px' }}>
-            Sistema de Gestão · Assessoria de Trânsito
+            Assessoria de Trânsito
           </p>
         </div>
 
@@ -135,7 +155,7 @@ export default function Login() {
                 width: '100%',
                 padding: '12px 14px',
                 background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(59,130,246,0.2)',
+                border: '1px solid rgba(117,21,24,0.25)',
                 borderRadius: '8px',
                 color: '#fff',
                 fontSize: '14px',
@@ -167,7 +187,7 @@ export default function Login() {
                 width: '100%',
                 padding: '12px 14px',
                 background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(59,130,246,0.2)',
+                border: '1px solid rgba(117,21,24,0.25)',
                 borderRadius: '8px',
                 color: '#fff',
                 fontSize: '14px',
@@ -183,7 +203,7 @@ export default function Login() {
             style={{
               width: '100%',
               padding: '14px',
-              background: loading ? '#1e40af' : '#2563eb',
+              background: loading ? '#5a1012' : '#751518',
               color: 'white',
               border: 'none',
               borderRadius: '8px',
@@ -193,7 +213,7 @@ export default function Login() {
               fontWeight: '600',
               letterSpacing: '0.3px',
               transition: 'background 0.2s, transform 0.1s',
-              boxShadow: loading ? 'none' : '0 4px 16px rgba(37,99,235,0.4)'
+              boxShadow: loading ? 'none' : '0 4px 16px rgba(117,21,24,0.4)'
             }}
           >
             {loading ? 'Entrando...' : 'Entrar'}
@@ -207,7 +227,7 @@ export default function Login() {
           fontSize: '11px',
           letterSpacing: '0.5px'
         }}>
-          © ChronosTek · Todos os direitos reservados
+          © CR Recursos · Todos os direitos reservados
         </p>
       </div>
     </div>

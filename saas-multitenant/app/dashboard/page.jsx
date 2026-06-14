@@ -22,6 +22,7 @@ import MultasLeads     from '../multas/Leads';
 import MultasLeadsList from '../multas/LeadsList';
 import MultasTarefas   from '../multas/Tarefas';
 import MultasApprovals from '../multas/Approvals';
+import MultasAgenda    from '../multas/Calendario';
 
 // Settings
 import SettingsPage from '../settings/page';
@@ -60,11 +61,11 @@ const modulePages = {
       tarefas:    MultasTarefas,
       approvals:  MultasApprovals,
       history:    MultasHistory,
+      calendario: MultasAgenda,
       // legacy / coming-soon
       defesa:     () => <ComingSoon moduleName="Defesa Prévia" />,
       instancia1: () => <ComingSoon moduleName="1ª Instância" />,
       instancia2: () => <ComingSoon moduleName="2ª Instância" />,
-      calendario: () => <ComingSoon moduleName="Calendário" />,
       documents:  () => <ComingSoon moduleName="Documentos" />,
     },
   },

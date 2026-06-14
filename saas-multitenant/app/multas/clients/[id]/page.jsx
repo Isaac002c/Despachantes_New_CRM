@@ -7,7 +7,7 @@ import { getServicesByClient, deleteService, getServiceTypes } from '../../../li
 import { getContractsByService, createContract, updateContract, deleteContract, patchContractProtocol } from '../../../lib/contractsAPI';
 import { getDocumentsByClient, createDocument, deleteDocument } from '../../../lib/documentsAPI';
 import { uploadFile } from '../../../lib/uploadsAPI';
-import { listByFine, createProtocol, updateProtocol, deleteProtocol } from '../../../lib/fineProtocolsAPI';
+import { listByFine, createProtocol, updateProtocol, deleteProtocol, sendProtocolEmail } from '../../../lib/fineProtocolsAPI';
 import { requestDeletion } from '../../../lib/approvalsAPI';
 
 // ─── Constantes de negócio ────────────────────────────
@@ -80,7 +80,12 @@ const STATUS_OPTIONS_CRCI = [
   { value: 'FINALIZADO',   label: 'Finalizado' },
 ];
 
-const ORGANS = ['DETRAN', 'DER', 'DNIT', 'SMTR', 'RENAINF', 'PMRJ', 'PRF', 'PREFEITURA UF', 'OUTROS'];
+const ORGANS = ['DETRAN', 'DER', 'DNIT', 'SMTR', 'RENAINF', 'PRF', 'ANTT', 'PREFEITURA UF', 'OUTROS'];
+
+// Inclui o valor já salvo como opção (ex.: "PMRJ" legado) caso não esteja mais na lista,
+// para não perder/sobrescrever o órgão de registros antigos ao editar.
+const getOrganOptions = (current) =>
+  current && !ORGANS.includes(current) ? [current, ...ORGANS] : ORGANS;
 
 const STATUS_COLORS = {
   'APRS DEFESA PREVIA':      { bg: '#ede9fe', text: '#6366f1' },
@@ -703,7 +708,7 @@ export default function ClientDetail() {
                     <table className="data-table" style={{ border: 'none', borderRadius: 0 }}>
                       <thead>
                         <tr>
-                          {name === 'MULTA' && <><th>Nº Auto de Infração</th><th>Placa</th></>}
+                          {name === 'MULTA' && <><th>Nº Auto de Infração</th><th>Placa</th><th>Órgão</th></>}
                           {(name === 'SUSPENSAO' || name === 'CASSACAO') && <><th>Nº Processo</th><th>Órgão</th></>}
                           {name === 'CRCI' && <th>Nº Processo</th>}
                           {name !== 'MULTA' && name !== 'SUSPENSAO' && name !== 'CASSACAO' && name !== 'CRCI' && <th>Serviço</th>}
@@ -723,6 +728,7 @@ export default function ClientDetail() {
                                   {contract.numero_multa || '—'}
                                 </td>
                                 <td>{contract.vehicle_plate || '—'}</td>
+                                <td>{contract.organ || '—'}</td>
                               </>
                             )}
                             {(name === 'SUSPENSAO' || name === 'CASSACAO') && (
@@ -1026,7 +1032,7 @@ export default function ClientDetail() {
                                 onChange={e => setContractForm({ ...contractForm, organ: e.target.value })}
                               >
                                 <option value="">Selecione...</option>
-                                {ORGANS.map(o => <option key={o} value={o}>{o}</option>)}
+                                {getOrganOptions(contractForm.organ).map(o => <option key={o} value={o}>{o}</option>)}
                               </select>
                             </div>
                           </div>
@@ -1306,6 +1312,8 @@ function ProtocolPanel({ contract, onSave, onClose }) {
   const [saving,        setSaving]       = useState(false);
   const [uploadingId,   setUploadingId]  = useState(null);
   const [uploadError,   setUploadError]  = useState('');
+  const [emailingId,    setEmailingId]   = useState(null);
+  const [emailFeedback, setEmailFeedback] = useState(null);
 
   const emptyProto = { protocol_number:'', protocol_date:'', protocol_status:'protocolado', protocol_notes:'', protocol_file_url:'' };
   const [newForm, setNewForm] = useState(emptyProto);
@@ -1355,6 +1363,19 @@ function ProtocolPanel({ contract, onSave, onClose }) {
       await deleteProtocol(id);
       setProtocols(prev => prev.filter(p => p.id!==id));
     } catch (err) { setUploadError(err.message); }
+  };
+
+  const handleSendEmail = async (protoId) => {
+    setEmailFeedback(null);
+    setEmailingId(protoId);
+    try {
+      const r = await sendProtocolEmail(protoId);
+      setEmailFeedback({ id: protoId, type: 'success', msg: `Protocolo enviado para ${r?.sent_to || 'o cliente'}.` });
+    } catch (err) {
+      setEmailFeedback({ id: protoId, type: 'error', msg: err.message || 'Falha ao enviar o e-mail.' });
+    } finally {
+      setEmailingId(null);
+    }
   };
 
   // Protocolo legado (fines.protocol_*) — exibe como item read-only se tiver dados
@@ -1453,10 +1474,20 @@ function ProtocolPanel({ contract, onSave, onClose }) {
                     {proto.protocol_file_url && (
                       <a href={proto.protocol_file_url} target="_blank" rel="noreferrer" style={{ fontSize:12, color:'#16a34a', display:'block', marginBottom:6 }}>Abrir / Baixar anexo</a>
                     )}
-                    <div style={{ display:'flex', gap:6 }}>
+                    <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
                       <button type="button" onClick={()=>setEditingId(proto.id)} style={{ padding:'3px 10px', borderRadius:5, fontSize:11, background:'#f1f5f9', border:'none', color:'#475569', cursor:'pointer' }}>Editar</button>
+                      {proto.protocol_file_url && (
+                        <button type="button" disabled={emailingId===proto.id} onClick={()=>handleSendEmail(proto.id)} title="Enviar protocolo por e-mail ao cliente" style={{ padding:'3px 10px', borderRadius:5, fontSize:11, background:'#751518', border:'none', color:'#fff', cursor: emailingId===proto.id?'wait':'pointer', opacity: emailingId===proto.id?0.7:1 }}>
+                          {emailingId===proto.id ? 'Enviando...' : 'Enviar por e-mail'}
+                        </button>
+                      )}
                       <button type="button" onClick={()=>handleDeleteItem(proto.id)} style={{ padding:'3px 10px', borderRadius:5, fontSize:11, background:'#fee2e2', border:'none', color:'#991b1b', cursor:'pointer' }}>Excluir</button>
                     </div>
+                    {emailFeedback?.id===proto.id && (
+                      <div style={{ marginTop:6, fontSize:11, fontWeight:600, color: emailFeedback.type==='success' ? '#15803d' : '#b91c1c' }}>
+                        {emailFeedback.msg}
+                      </div>
+                    )}
                   </>
                 )}
               </div>

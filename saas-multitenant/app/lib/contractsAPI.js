@@ -32,3 +32,6 @@ export const getContractDashboard = async () =>
 
 export const getStageClients = async () =>
   (await apiRequest('/api/contracts/stage-clients')).data;
+
+export const getDeadlines = async (days = 30) =>
+  (await apiRequest(`/api/contracts/deadlines?days=${days}`)).data;

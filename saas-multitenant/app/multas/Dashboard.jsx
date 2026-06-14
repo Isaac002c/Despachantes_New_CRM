@@ -38,7 +38,14 @@ const STAGE_GROUPS = {
   },
 };
 
-const formatDate = (v) => (!v ? '—' : new Date(v).toLocaleDateString('pt-BR'));
+// Parsing date-only seguro: evita o shift de 1 dia ao interpretar "YYYY-MM-DD" como UTC.
+const formatDate = (v) => {
+  if (!v) return '—';
+  const s = String(v).substring(0, 10);
+  const [y, m, d] = s.split('-');
+  if (y && m && d) return `${d}/${m}/${y}`;
+  return new Date(v).toLocaleDateString('pt-BR');
+};
 
 // ─── Sub-componentes ──────────────────────────────────────────────────────────
 
@@ -183,6 +190,7 @@ export default function MultasDashboard() {
   const [currentUser, setCurrentUser] = useState(null);
   const [clients,    setClients]    = useState([]);
   const [contracts,  setContracts]  = useState(null);
+  const [alerts,     setAlerts]     = useState([]);
   const [stageData,  setStageData]  = useState({});
   const [loading,    setLoading]    = useState(true);
   const [expandedStage, setExpandedStage] = useState(null); // 'defesa' | 'inst1' | 'inst2'
@@ -203,6 +211,7 @@ export default function MultasDashboard() {
       ]);
       setClients(clientsData || []);
       setContracts(contractsData?.dashboard || contractsData || {});
+      setAlerts(contractsData?.alerts || []);
       setStageData(stageGroupsData || {});
     } catch (err) {
       console.error(err);
@@ -227,6 +236,9 @@ export default function MultasDashboard() {
   const fechados    = clients.filter(c => c.status === 'fechado').length;
   const negociando  = clients.filter(c => c.status === 'negociacao').length;
   const totalContracts = parseInt(contracts?.total_contracts) || 0;
+  const deferidos      = parseInt(contracts?.completed_contracts) || 0;
+  const venceEm7       = alerts.find(a => a.type === 'warning')?.count || 0;
+  const vencidos       = alerts.find(a => a.type === 'danger')?.count || 0;
 
   // Contagens por etapa
   const countStage = (keys) => keys.reduce((acc, k) => acc + (stageData[k]?.length || 0), 0);
@@ -264,18 +276,17 @@ export default function MultasDashboard() {
           />
           <SummaryCard
             title="VENCE EM 7 DIAS"
-            value="—"
-            subtitle="Requer calendário"
+            value={venceEm7}
+            subtitle="próximos 7 dias"
             color="#f59e0b"
-            dimmed
+            onClick={() => router.push('/dashboard?module=multas&tab=calendario')}
             icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
           />
           <SummaryCard
-            title="CALENDÁRIO"
-            value="—"
-            subtitle="Em breve"
-            color="#22c55e"
-            dimmed
+            title="PRAZOS VENCIDOS"
+            value={vencidos}
+            subtitle="ver agenda"
+            color="#ef4444"
             icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>}
             onClick={() => router.push('/dashboard?module=multas&tab=calendario')}
           />
@@ -343,6 +354,7 @@ export default function MultasDashboard() {
               { label: 'Defesa Prévia',      value: defesaTotal,    color: '#6366f1' },
               { label: '1ª Instância',       value: inst1Total,     color: '#f59e0b' },
               { label: '2ª Instância',       value: inst2Total,     color: '#ef4444' },
+              { label: 'Deferidos',          value: deferidos,      color: '#15803d' },
             ].map(({ label, value, color }) => (
               <div key={label} className="md-stage-item">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

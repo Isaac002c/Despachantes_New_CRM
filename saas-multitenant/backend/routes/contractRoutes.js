@@ -50,6 +50,20 @@ router.get('/dashboard', checkPermission('contracts:read'), async (req, res) => 
   }
 });
 
+// GET /api/contracts/deadlines?days=30 — prazos vencidos + próximos (escopo do tenant autenticado)
+router.get('/deadlines', checkPermission('contracts:read'), async (req, res) => {
+  try {
+    const days = Math.min(Math.max(parseInt(req.query.days, 10) || 30, 1), 365);
+    const [overdue, upcoming] = await Promise.all([
+      contractModel.getOverdueContracts(req.tenantId),
+      contractModel.getContractsNearDueDate(req.tenantId, days),
+    ]);
+    res.json({ success: true, data: { overdue, upcoming, days } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 router.get('/client/:clientId', checkPermission('contracts:read'), async (req, res) => {
   try {
     const contracts = await contractModel.getContractsByClient(req.params.clientId, req.tenantId);

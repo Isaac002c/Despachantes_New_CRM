@@ -13,3 +13,6 @@ export const updateProtocol = async (id, data) =>
 
 export const deleteProtocol = async (id) =>
   (await apiRequest(`${BASE}/${id}`, { method: 'DELETE' })).data;
+
+export const sendProtocolEmail = async (id) =>
+  (await apiRequest(`${BASE}/${id}/send-email`, { method: 'POST' })).data;
