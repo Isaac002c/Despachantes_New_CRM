@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import {
-  getMultasLeads, createMultasLead, updateMultasLead,
+  getKanbanLeads, createMultasLead, updateMultasLead,
   updateMultasLeadStatus, deleteMultasLead
 } from '../lib/multasLeadsAPI';
 import { requestDeletion } from '../lib/approvalsAPI';
@@ -47,7 +47,7 @@ export default function Tarefas() {
   const load = async () => {
     try {
       setLoading(true); setError(null);
-      setLeads(await getMultasLeads() || []);
+      setLeads(await getKanbanLeads() || []);
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
   };

@@ -5,6 +5,10 @@ const BASE = '/api/multas-leads';
 export const getMultasLeads = async () =>
   (await apiRequest(BASE)).data;
 
+// Kanban: aplica a regra de ocultação 7/30 (não afeta a listagem completa)
+export const getKanbanLeads = async () =>
+  (await apiRequest(`${BASE}/kanban`)).data;
+
 export const getMultasLeadsStats = async () =>
   (await apiRequest(`${BASE}/stats`)).data;
 

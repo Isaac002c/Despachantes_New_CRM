@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getContractDashboard, getStageClients, getDeferred } from '../lib/contractsAPI';
 import { getClients } from '../lib/clientsAPI';
+import { getUpcomingEvents } from '../lib/calendarAPI';
+import { getKanbanLeads } from '../lib/multasLeadsAPI';
 import UserHome from './UserHome';
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
@@ -255,6 +257,8 @@ export default function MultasDashboard() {
   const [alerts,     setAlerts]     = useState([]);
   const [stageData,  setStageData]  = useState({});
   const [deferidosList, setDeferidosList] = useState([]);
+  const [upcomingEvents, setUpcomingEvents] = useState([]);
+  const [kanbanActive, setKanbanActive] = useState(0);
   const [loading,    setLoading]    = useState(true);
   const [expandedStage, setExpandedStage] = useState(null); // 'defesa' | 'inst1' | 'inst2' | 'deferido'
 
@@ -267,17 +271,21 @@ export default function MultasDashboard() {
   const load = async () => {
     try {
       setLoading(true);
-      const [clientsData, contractsData, stageGroupsData, deferredData] = await Promise.all([
+      const [clientsData, contractsData, stageGroupsData, deferredData, eventsData, kanbanData] = await Promise.all([
         getClients().catch(() => []),
         getContractDashboard().catch(() => ({})),
         getStageClients().catch(() => ({})),
         getDeferred().catch(() => []),
+        getUpcomingEvents(5).catch(() => []),
+        getKanbanLeads().catch(() => []),
       ]);
       setClients(clientsData || []);
       setContracts(contractsData?.dashboard || contractsData || {});
       setAlerts(contractsData?.alerts || []);
       setStageData(stageGroupsData || {});
       setDeferidosList(deferredData || []);
+      setUpcomingEvents(eventsData || []);
+      setKanbanActive((kanbanData || []).length);
     } catch (err) {
       console.error(err);
     } finally {
@@ -429,6 +437,7 @@ export default function MultasDashboard() {
               { label: 'Defesa Prévia',      value: defesaTotal,    color: '#6366f1' },
               { label: '1ª Instância',       value: inst1Total,     color: '#f59e0b' },
               { label: '2ª Instância',       value: inst2Total,     color: '#ef4444' },
+              { label: 'Tarefas ativas',     value: kanbanActive,   color: '#3b82f6' },
             ].map(({ label, value, color }) => (
               <div key={label} className="md-stage-item">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -441,6 +450,30 @@ export default function MultasDashboard() {
               </div>
             ))}
           </div>
+        </SectionCard>
+
+        <SectionCard title="Próximos eventos">
+          {upcomingEvents.length === 0 ? (
+            <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>Nenhum evento próximo.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {upcomingEvents.map(ev => (
+                <div
+                  key={ev.id}
+                  style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer' }}
+                  onClick={() => router.push('/dashboard?module=multas&tab=eventos')}
+                >
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#751518', marginTop: 6, flexShrink: 0 }} />
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.title}</div>
+                    <div style={{ fontSize: 11, color: '#94a3b8' }}>
+                      {formatDate(ev.event_date)}{ev.start_time ? ` · ${String(ev.start_time).substring(0,5)}` : ''}{ev.client_name ? ` · ${ev.client_name}` : ''}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </SectionCard>
 
       </div>

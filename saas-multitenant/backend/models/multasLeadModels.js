@@ -92,7 +92,9 @@ const updateMultasLead = async (id, {
   const result = await pool.query(
     `UPDATE multas_leads
      SET name = $1, cpf = $2, cnh = $3, first_license_date = $4, birth_date = $5,
-         phone = $6, source = $7, status = $8, notes = $9, motivo = $10, updated_at = NOW()
+         phone = $6, source = $7, status = $8, notes = $9, motivo = $10,
+         stage_changed_at = CASE WHEN multas_leads.status <> $8 THEN NOW() ELSE multas_leads.stage_changed_at END,
+         updated_at = NOW()
      WHERE id = $11 AND tenant_id = $12
      RETURNING *`,
     [
@@ -117,11 +119,31 @@ const updateMultasLeadStatus = async (id, status, tenant_id) => {
   const normalized = (status || '').toLowerCase().trim();
   if (!VALID_STATUSES.includes(normalized)) throw new Error('Status inválido');
   const result = await pool.query(
-    `UPDATE multas_leads SET status = $1, updated_at = NOW()
+    `UPDATE multas_leads SET status = $1, stage_changed_at = NOW(), updated_at = NOW()
      WHERE id = $2 AND tenant_id = $3 RETURNING *`,
     [normalized, id, tenant_id]
   );
   return result.rows[0];
+};
+
+// READ - kanban (oculta automaticamente itens parados há muito tempo, sem arquivar/apagar)
+// Regra: negociacao > 30 dias | demais status > 7 dias, contados por stage_changed_at.
+const getKanbanLeads = async (tenant_id) => {
+  const result = await pool.query(
+    `SELECT ml.*, u.name AS user_name
+       FROM multas_leads ml
+       LEFT JOIN users u ON ml.created_by = u.id
+      WHERE ml.tenant_id = $1
+        AND ml.archived_at IS NULL
+        AND NOT (
+          (ml.status = 'negociacao' AND COALESCE(ml.stage_changed_at, ml.updated_at, ml.created_at) < NOW() - INTERVAL '30 days')
+          OR
+          (ml.status <> 'negociacao' AND COALESCE(ml.stage_changed_at, ml.updated_at, ml.created_at) < NOW() - INTERVAL '7 days')
+        )
+      ORDER BY ml.created_at DESC`,
+    [tenant_id]
+  );
+  return result.rows;
 };
 
 // ARCHIVE OLD (soft delete — admin only)
@@ -155,6 +177,7 @@ const deleteMultasLead = async (id, tenant_id) => {
 module.exports = {
   createMultasLead,
   getAllMultasLeads,
+  getKanbanLeads,
   getMultasLeadsByStatus,
   getMultasLeadById,
   countMultasLeadsByStatus,

@@ -12,6 +12,8 @@ const pageInfo = {
   instancia1: { title: '1ª Instância',       subtitle: 'Processos em primeira instância.' },
   instancia2: { title: '2ª Instância',       subtitle: 'Processos em segunda instância.' },
   calendario: { title: 'Agenda de Prazos',   subtitle: 'Prazos vencidos e próximos dos seus processos.' },
+  eventos:    { title: 'Calendário',         subtitle: 'Eventos e agendamentos da equipe.' },
+  deferidos:  { title: 'Deferidos',          subtitle: 'Processos com resultado deferido — prova social.' },
   documents:  { title: 'Documentos',         subtitle: 'Gerencie documentos e arquivos dos processos.' },
   history:    { title: 'Histórico',          subtitle: 'Registro completo de atividades e alterações.' },
   // Leads

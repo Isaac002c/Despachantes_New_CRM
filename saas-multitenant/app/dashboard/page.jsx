@@ -18,6 +18,8 @@ import LeadsReports      from '../leads/Reports';
 import MultasDashboard from '../multas/Dashboard';
 import MultasClients   from '../multas/Clients';
 import MultasCompanies from '../multas/Companies';
+import MultasDeferidos from '../multas/Deferidos';
+import CalendarioEventos from '../multas/CalendarioEventos';
 import MultasHistory   from '../multas/History';
 import MultasLeads     from '../multas/Leads';
 import MultasLeadsList from '../multas/LeadsList';
@@ -64,6 +66,8 @@ const modulePages = {
       approvals:  MultasApprovals,
       history:    MultasHistory,
       calendario: MultasAgenda,
+      eventos:    CalendarioEventos,
+      deferidos:  MultasDeferidos,
       // legacy / coming-soon
       defesa:     () => <ComingSoon moduleName="Defesa Prévia" />,
       instancia1: () => <ComingSoon moduleName="1ª Instância" />,
