@@ -30,6 +30,7 @@ const multasLeadsRoutes = require('./routes/multasLeadsRoutes');
 const uploadRoutes        = require('./routes/uploadRoutes');
 const fineProtocolRoutes  = require('./routes/fineProtocolRoutes');
 const approvalRoutes      = require('./routes/approvalRoutes');
+const companyRoutes       = require('./routes/companyRoutes');
 
 const app = express();
 
@@ -159,6 +160,7 @@ app.use('/api/multas-leads', multasLeadsRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/fine-protocols', fineProtocolRoutes);
 app.use('/api/approvals', approvalRoutes);
+app.use('/api/companies', companyRoutes);
 
 // ============================================
 // HEALTH CHECK (sem autenticação — para uptime monitors)

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getContractDashboard, getStageClients } from '../lib/contractsAPI';
+import { getContractDashboard, getStageClients, getDeferred } from '../lib/contractsAPI';
 import { getClients } from '../lib/clientsAPI';
 import UserHome from './UserHome';
 
@@ -37,6 +37,9 @@ const STAGE_GROUPS = {
     ],
   },
 };
+
+// Etapa "Deferidos" — contagem/lista próprias (fines com stage DEFERIDO), inclui cliente OU empresa.
+const DEFERIDO_INFO = { label: 'Deferidos', color: '#15803d', bg: 'rgba(21,128,61,0.08)' };
 
 // Parsing date-only seguro: evita o shift de 1 dia ao interpretar "YYYY-MM-DD" como UTC.
 const formatDate = (v) => {
@@ -100,6 +103,7 @@ function StageCard({ groupKey, info, count, active, onClick }) {
           {groupKey === 'defesa' && <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>}
           {groupKey === 'inst1'  && <><line x1="12" y1="3" x2="12" y2="21"/><path d="M3 9l9-7 9 7M5 9l7 13L19 9"/></>}
           {groupKey === 'inst2'  && <><circle cx="12" cy="12" r="3"/><path d="M3 9l9-7 9 7M5 9l7 13L19 9"/></>}
+          {groupKey === 'deferido' && <><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></>}
         </svg>
       </div>
       <div className="md-stage-card-body">
@@ -183,6 +187,64 @@ function StagePanel({ groupKey, info, stageData, onClose }) {
   );
 }
 
+// Painel de Deferidos (lista plana — cliente OU empresa)
+function DeferidosPanel({ items, onClose }) {
+  const router = useRouter();
+  const color = '#15803d';
+  const open = (it) => {
+    if (it.client_id)       router.push(`/multas/clients/${it.client_id}`);
+    else if (it.company_id) router.push(`/multas/companies/${it.company_id}`);
+  };
+  return (
+    <div className="md-stage-panel">
+      <div className="md-stage-panel-header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className="md-stage-panel-dot" style={{ background: color }} />
+          <h3 className="md-stage-panel-title" style={{ color }}>Deferidos — vitórias</h3>
+        </div>
+        <button className="md-stage-panel-close" onClick={onClose}>✕ Fechar</button>
+      </div>
+      <div className="md-stage-panel-groups">
+        <div className="md-stage-subgroup">
+          {items.length === 0 ? (
+            <p className="md-stage-empty">Nenhum processo deferido ainda.</p>
+          ) : (
+            <div className="md-stage-client-list">
+              {items.map((c) => (
+                <div
+                  key={c.id}
+                  className="md-stage-client-card"
+                  onClick={() => open(c)}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <div className="md-stage-client-avatar" style={{ background: `${color}18`, color }}>
+                    {c.client_name?.charAt(0).toUpperCase() || '—'}
+                  </div>
+                  <div className="md-stage-client-info">
+                    <span className="md-stage-client-name">
+                      {c.client_name || 'Sem nome'}{c.company_id ? '  ·  Empresa' : ''}
+                    </span>
+                    <span className="md-stage-client-meta">
+                      {c.organ || '—'}
+                      {c.numero_multa ? ` · ${c.numero_multa}` : ''}
+                      {c.vehicle_plate ? ` · ${c.vehicle_plate}` : ''}
+                      {c.due_date ? ` · ${formatDate(c.due_date)}` : ''}
+                    </span>
+                  </div>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="2">
+                    <polyline points="9 18 15 12 9 6"/>
+                  </svg>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function MultasDashboard() {
@@ -192,8 +254,9 @@ export default function MultasDashboard() {
   const [contracts,  setContracts]  = useState(null);
   const [alerts,     setAlerts]     = useState([]);
   const [stageData,  setStageData]  = useState({});
+  const [deferidosList, setDeferidosList] = useState([]);
   const [loading,    setLoading]    = useState(true);
-  const [expandedStage, setExpandedStage] = useState(null); // 'defesa' | 'inst1' | 'inst2'
+  const [expandedStage, setExpandedStage] = useState(null); // 'defesa' | 'inst1' | 'inst2' | 'deferido'
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -204,15 +267,17 @@ export default function MultasDashboard() {
   const load = async () => {
     try {
       setLoading(true);
-      const [clientsData, contractsData, stageGroupsData] = await Promise.all([
+      const [clientsData, contractsData, stageGroupsData, deferredData] = await Promise.all([
         getClients().catch(() => []),
         getContractDashboard().catch(() => ({})),
         getStageClients().catch(() => ({})),
+        getDeferred().catch(() => []),
       ]);
       setClients(clientsData || []);
       setContracts(contractsData?.dashboard || contractsData || {});
       setAlerts(contractsData?.alerts || []);
       setStageData(stageGroupsData || {});
+      setDeferidosList(deferredData || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -236,7 +301,7 @@ export default function MultasDashboard() {
   const fechados    = clients.filter(c => c.status === 'fechado').length;
   const negociando  = clients.filter(c => c.status === 'negociacao').length;
   const totalContracts = parseInt(contracts?.total_contracts) || 0;
-  const deferidos      = parseInt(contracts?.completed_contracts) || 0;
+  const deferidos      = parseInt(contracts?.deferred_count ?? contracts?.completed_contracts) || 0;
   const venceEm7       = alerts.find(a => a.type === 'warning')?.count || 0;
   const vencidos       = alerts.find(a => a.type === 'danger')?.count || 0;
 
@@ -307,10 +372,17 @@ export default function MultasDashboard() {
               />
             );
           })}
+          <StageCard
+            groupKey="deferido"
+            info={DEFERIDO_INFO}
+            count={deferidos}
+            active={expandedStage === 'deferido'}
+            onClick={() => handleStageClick('deferido')}
+          />
         </div>
 
         {/* Painel expandido da etapa */}
-        {expandedStage && (
+        {expandedStage && expandedStage !== 'deferido' && (
           <StagePanel
             key={expandedStage}
             groupKey={expandedStage}
@@ -318,6 +390,9 @@ export default function MultasDashboard() {
             stageData={stageData}
             onClose={() => setExpandedStage(null)}
           />
+        )}
+        {expandedStage === 'deferido' && (
+          <DeferidosPanel items={deferidosList} onClose={() => setExpandedStage(null)} />
         )}
 
       </div>
@@ -354,7 +429,6 @@ export default function MultasDashboard() {
               { label: 'Defesa Prévia',      value: defesaTotal,    color: '#6366f1' },
               { label: '1ª Instância',       value: inst1Total,     color: '#f59e0b' },
               { label: '2ª Instância',       value: inst2Total,     color: '#ef4444' },
-              { label: 'Deferidos',          value: deferidos,      color: '#15803d' },
             ].map(({ label, value, color }) => (
               <div key={label} className="md-stage-item">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

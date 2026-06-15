@@ -4,6 +4,7 @@ const pageInfo = {
   // Multas
   dashboard:  { title: 'Dashboard',         subtitle: 'Visão geral de clientes, serviços, prazos e etapas.' },
   clients:    { title: 'Clientes',           subtitle: 'Gerencie todos os clientes e seus processos.' },
+  companies:  { title: 'Empresas',           subtitle: 'Pessoas jurídicas, frota e processos vinculados.' },
   leads:      { title: 'Leads',              subtitle: 'Lista e cadastro de leads captados.' },
   tarefas:    { title: 'Tarefas',            subtitle: 'Quadro kanban de acompanhamento operacional dos leads.' },
   approvals:  { title: 'Aprovações',         subtitle: 'Solicitações de exclusão aguardando aprovação.' },

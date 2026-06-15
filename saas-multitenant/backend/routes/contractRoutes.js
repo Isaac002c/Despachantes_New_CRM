@@ -64,6 +64,16 @@ router.get('/deadlines', checkPermission('contracts:read'), async (req, res) => 
   }
 });
 
+// GET /api/contracts/deferred — processos DEFERIDOS (cliente OU empresa), tenant-scoped
+router.get('/deferred', checkPermission('contracts:read'), async (req, res) => {
+  try {
+    const rows = await contractModel.getDeferred(req.tenantId);
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 router.get('/client/:clientId', checkPermission('contracts:read'), async (req, res) => {
   try {
     const contracts = await contractModel.getContractsByClient(req.params.clientId, req.tenantId);

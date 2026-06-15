@@ -17,6 +17,7 @@ import LeadsReports      from '../leads/Reports';
 // Multas
 import MultasDashboard from '../multas/Dashboard';
 import MultasClients   from '../multas/Clients';
+import MultasCompanies from '../multas/Companies';
 import MultasHistory   from '../multas/History';
 import MultasLeads     from '../multas/Leads';
 import MultasLeadsList from '../multas/LeadsList';
@@ -57,6 +58,7 @@ const modulePages = {
     pages: {
       dashboard:  MultasDashboard,
       clients:    MultasClients,
+      companies:  MultasCompanies,
       leads:      MultasLeadsList,
       tarefas:    MultasTarefas,
       approvals:  MultasApprovals,

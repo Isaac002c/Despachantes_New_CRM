@@ -1,22 +1,24 @@
 const pool = require('../config/db');
 
 const toDateOrNull = (v) => (v === '' || v == null) ? null : v;
+const toUuidOrNull = (v) => (v === '' || v == null) ? null : v;
 
-const createContract = async ({ 
-  tenant_id, client_id, service_id, organ,
-  infraction_type, vehicle_plate, vehicle_model, status, value, 
-  due_date, notes, numero_multa, deadline_date 
+const createContract = async ({
+  tenant_id, client_id, company_id, vehicle_id, service_id, organ,
+  infraction_type, vehicle_plate, vehicle_model, status, value,
+  due_date, notes, numero_multa, deadline_date
 }) => {
   if (!tenant_id) throw new Error('tenant_id e obrigatorio');
-  if (!client_id) throw new Error('client_id e obrigatorio');
+  if (!client_id && !company_id) throw new Error('client_id ou company_id é obrigatório');
   const result = await pool.query(
     `INSERT INTO fines(
-      tenant_id, client_id, service_type_id, organ,
-      infraction_type, plate, vehicle_model, stage, value, 
+      tenant_id, client_id, company_id, vehicle_id, service_type_id, organ,
+      infraction_type, plate, vehicle_model, stage, value,
       due_date, notes, fine_number, defense_date
-    ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+    ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
     [
-      tenant_id, client_id, service_id, organ,
+      tenant_id, toUuidOrNull(client_id), toUuidOrNull(company_id), toUuidOrNull(vehicle_id),
+      service_id, organ,
       infraction_type, vehicle_plate, vehicle_model,
       status || 'APRS DEFESA PREVIA', value || 0,
       toDateOrNull(due_date), notes, numero_multa, toDateOrNull(deadline_date)
@@ -177,6 +179,7 @@ const getDashboardStats = async (tenant_id) => {
       COUNT(*) as total_contracts,
       COUNT(CASE WHEN stage NOT IN ('DEFERIDO','INDEFERIDO','CANCELADO') THEN 1 END) as active_contracts,
       COUNT(CASE WHEN stage = 'DEFERIDO' THEN 1 END) as completed_contracts,
+      COUNT(*) FILTER (WHERE UPPER(TRIM(stage)) = 'DEFERIDO') as deferred_count,
       COUNT(CASE WHEN stage = 'CANCELADO' THEN 1 END) as inactive_contracts
     FROM fines WHERE tenant_id = $1`,
     [tenant_id]
@@ -243,8 +246,11 @@ const getAPRsByStage = async (tenant_id) => {
 const getContractsNearDueDate = async (tenant_id, days = 30) => {
   const result = await pool.query(
     `SELECT f.*, f.fine_number AS numero_multa, f.plate AS vehicle_plate, f.stage AS status,
-      cl.name AS client_name, cl.phone AS client_phone
-     FROM fines f LEFT JOIN clients cl ON f.client_id = cl.id
+      COALESCE(cl.name, co.razao_social, co.nome_fantasia) AS client_name,
+      COALESCE(cl.phone, co.phone) AS client_phone
+     FROM fines f
+       LEFT JOIN clients cl   ON f.client_id  = cl.id AND cl.tenant_id = f.tenant_id
+       LEFT JOIN companies co ON f.company_id = co.id AND co.tenant_id = f.tenant_id
      WHERE f.tenant_id = $1
        AND f.due_date IS NOT NULL
        AND f.due_date <= NOW() + INTERVAL '1 day' * $2
@@ -258,8 +264,11 @@ const getContractsNearDueDate = async (tenant_id, days = 30) => {
 const getOverdueContracts = async (tenant_id) => {
   const result = await pool.query(
     `SELECT f.*, f.fine_number AS numero_multa, f.plate AS vehicle_plate, f.stage AS status,
-      cl.name AS client_name, cl.phone AS client_phone
-     FROM fines f LEFT JOIN clients cl ON f.client_id = cl.id
+      COALESCE(cl.name, co.razao_social, co.nome_fantasia) AS client_name,
+      COALESCE(cl.phone, co.phone) AS client_phone
+     FROM fines f
+       LEFT JOIN clients cl   ON f.client_id  = cl.id AND cl.tenant_id = f.tenant_id
+       LEFT JOIN companies co ON f.company_id = co.id AND co.tenant_id = f.tenant_id
      WHERE f.tenant_id = $1
        AND f.due_date IS NOT NULL AND f.due_date < NOW()
      ORDER BY f.due_date ASC`,
@@ -292,7 +301,7 @@ const updateContract = async (id, {
   organ, infraction_type, vehicle_plate, vehicle_model,
   status, value, due_date, notes, numero_multa, deadline_date,
   protocol_number, protocol_date, protocol_status, protocol_notes,
-  protocol_file_url,
+  protocol_file_url, company_id, vehicle_id,
 }, tenant_id) => {
   const result = await pool.query(
     `UPDATE fines
@@ -302,8 +311,10 @@ const updateContract = async (id, {
          protocol_number=$11, protocol_date=$12,
          protocol_status=$13, protocol_notes=$14,
          protocol_file_url=$15,
+         company_id=COALESCE($16, company_id),
+         vehicle_id=COALESCE($17, vehicle_id),
          updated_at=NOW()
-     WHERE id=$16 AND tenant_id=$17 RETURNING *`,
+     WHERE id=$18 AND tenant_id=$19 RETURNING *`,
     [
       organ, infraction_type, vehicle_plate, vehicle_model,
       status, value, toDateOrNull(due_date), notes,
@@ -311,6 +322,7 @@ const updateContract = async (id, {
       protocol_number || null, toDateOrNull(protocol_date),
       protocol_status || null, protocol_notes || null,
       protocol_file_url || null,
+      toUuidOrNull(company_id), toUuidOrNull(vehicle_id),
       id, tenant_id,
     ]
   );
@@ -360,12 +372,14 @@ const getClientsByStageGroup = async (tenant_id) => {
   const result = await pool.query(
     `SELECT
        c.id          AS client_id,
-       c.name        AS client_name,
-       c.phone       AS client_phone,
+       co.id         AS company_id,
+       COALESCE(c.name, co.razao_social, co.nome_fantasia) AS client_name,
+       COALESCE(c.phone, co.phone)                         AS client_phone,
        c.cpf         AS client_cpf,
        f.id          AS fine_id,
        f.fine_number,
        f.organ,
+       f.plate,
        f.due_date,
        f.stage,
        CASE
@@ -389,7 +403,8 @@ const getClientsByStageGroup = async (tenant_id) => {
            THEN 'inst2_analise'
        END AS sub_group
      FROM fines f
-     JOIN clients c ON f.client_id = c.id
+     LEFT JOIN clients c    ON f.client_id  = c.id  AND c.tenant_id  = f.tenant_id
+     LEFT JOIN companies co ON f.company_id = co.id AND co.tenant_id = f.tenant_id
      WHERE f.tenant_id = $1
        AND (
          UPPER(f.stage) IN (
@@ -401,7 +416,33 @@ const getClientsByStageGroup = async (tenant_id) => {
          OR UPPER(f.stage) LIKE '%1%INST%'
          OR UPPER(f.stage) LIKE '%2%INST%'
        )
-     ORDER BY c.name ASC`,
+     ORDER BY COALESCE(c.name, co.razao_social, co.nome_fantasia) ASC`,
+    [tenant_id]
+  );
+  return result.rows;
+};
+
+// Lista de processos DEFERIDOS (cliente OU empresa) — prova social, tenant-scoped
+const getDeferred = async (tenant_id) => {
+  const result = await pool.query(
+    `SELECT
+       f.id,
+       f.fine_number AS numero_multa,
+       f.plate       AS vehicle_plate,
+       f.organ,
+       f.due_date,
+       f.updated_at,
+       f.stage       AS status,
+       c.id          AS client_id,
+       co.id         AS company_id,
+       COALESCE(c.name, co.razao_social, co.nome_fantasia) AS client_name
+     FROM fines f
+       LEFT JOIN clients c    ON f.client_id  = c.id  AND c.tenant_id  = f.tenant_id
+       LEFT JOIN companies co ON f.company_id = co.id AND co.tenant_id = f.tenant_id
+     WHERE f.tenant_id = $1
+       AND UPPER(TRIM(f.stage)) = 'DEFERIDO'
+     ORDER BY f.updated_at DESC NULLS LAST
+     LIMIT 500`,
     [tenant_id]
   );
   return result.rows;
@@ -413,5 +454,5 @@ module.exports = {
   getContractsByOrgan, countContracts, countActiveContracts, getDashboardStats,
   getContractsGroupedByOrgan, getAPRsByStage, getContractsNearDueDate,
   getOverdueContracts, getAlerts, updateContract, patchContractProtocol,
-  updateContractStatus, deleteContract, getClientsByStageGroup,
+  updateContractStatus, deleteContract, getClientsByStageGroup, getDeferred,
 };

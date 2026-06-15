@@ -17,6 +17,13 @@ const Icons = {
       <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
     </svg>
   ),
+  Building: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 21h18"/><path d="M5 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16"/>
+      <path d="M19 21V9l-4-2"/>
+      <line x1="9" y1="7" x2="11" y2="7"/><line x1="9" y1="11" x2="11" y2="11"/><line x1="9" y1="15" x2="11" y2="15"/>
+    </svg>
+  ),
   Shield: () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
@@ -122,6 +129,7 @@ const sidebarConfig = {
     items: [
       { key: 'dashboard',  label: 'Dashboard',  Icon: Icons.Dashboard,  tab: 'dashboard',  roles: ['admin'] },
       { key: 'clients',    label: 'Clientes',   Icon: Icons.Clients,    tab: 'clients' },
+      { key: 'companies',  label: 'Empresas',   Icon: Icons.Building,   tab: 'companies' },
       { key: 'leads',      label: 'Leads',      Icon: Icons.Target,     tab: 'leads' },
       { key: 'tarefas',    label: 'Tarefas',    Icon: Icons.Tasks,      tab: 'tarefas' },
       { key: 'calendario', label: 'Agenda',     Icon: Icons.Calendar,   tab: 'calendario' },

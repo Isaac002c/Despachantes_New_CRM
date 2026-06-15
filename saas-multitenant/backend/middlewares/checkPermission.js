@@ -6,6 +6,7 @@ const rolePermissions = {
   admin: [
     'users:create', 'users:read', 'users:update', 'users:delete',
     'clients:create', 'clients:read', 'clients:update', 'clients:delete',
+    'companies:create', 'companies:read', 'companies:update', 'companies:delete',
     'contracts:create', 'contracts:read', 'contracts:update', 'contracts:delete',
     'documents:create', 'documents:read', 'documents:update', 'documents:delete',
     'fines:create', 'fines:read', 'fines:update', 'fines:delete',
@@ -15,6 +16,7 @@ const rolePermissions = {
   ],
   manager: [
     'clients:create', 'clients:read', 'clients:update',
+    'companies:create', 'companies:read', 'companies:update',
     'contracts:create', 'contracts:read', 'contracts:update',
     'documents:create', 'documents:read', 'documents:update',
     'fines:create', 'fines:read', 'fines:update', 'fines:delete',
@@ -22,18 +24,21 @@ const rolePermissions = {
   ],
   operator: [
     'clients:create', 'clients:read', 'clients:update',
+    'companies:create', 'companies:read', 'companies:update',
     'contracts:create', 'contracts:read', 'contracts:update',
     'documents:create', 'documents:read',
     'fines:create', 'fines:read', 'fines:update'
   ],
   seller: [
     'clients:create', 'clients:read', 'clients:update',
+    'companies:create', 'companies:read', 'companies:update',
     'contracts:create', 'contracts:read', 'contracts:update',
     'documents:create', 'documents:read',
     'fines:create', 'fines:read', 'fines:update'
   ],
   viewer: [
     'clients:read',
+    'companies:read',
     'contracts:read',
     'documents:read',
     'fines:read',
