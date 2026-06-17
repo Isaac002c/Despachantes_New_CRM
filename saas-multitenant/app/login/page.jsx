@@ -99,7 +99,7 @@ export default function Login() {
             ChronosTek
           </h1>
           <p style={{ color: '#64748b', fontSize: '13px' }}>
-            Sistema de Gestão · Assessoria de Trânsito
+            Sistema de Gestão
           </p>
         </div>
 
