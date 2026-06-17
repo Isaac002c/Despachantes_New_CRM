@@ -4,6 +4,10 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiRequest } from '../lib/api.js';
 
+// A tela de login é institucional Chronostek e não deve usar branding de tenant.
+// Logo, nome, cores e identidade visual são fixos da Chronostek. O tenant
+// (ex.: CR Recursos) só aparece DEPOIS do login, na área autenticada (sidebar/header).
+// Não puxar logo_url / brand_color / nome do tenant aqui.
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -61,14 +65,14 @@ export default function Login() {
     }}>
       <div style={{
         background: 'rgba(255,255,255,0.03)',
-        border: '1px solid rgba(117,21,24,0.25)',
+        border: '1px solid rgba(59,130,246,0.2)',
         padding: '48px 40px',
         borderRadius: '16px',
-        boxShadow: '0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(117,21,24,0.12)',
+        boxShadow: '0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(59,130,246,0.08)',
         width: '100%',
         maxWidth: '420px'
       }}>
-        {/* Marca CR Recursos — usa /logos/cr-recursos.png (ou .svg) se existir; senão, monograma seguro */}
+        {/* Logo ChronosTek */}
         <div style={{ textAlign: 'center', marginBottom: '36px' }}>
           <div style={{
             display: 'inline-flex',
@@ -80,30 +84,10 @@ export default function Login() {
           }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/logos/cr-recursos.png"
-              alt="CR Recursos"
-              style={{ width: '80px', height: '80px', objectFit: 'contain', filter: 'drop-shadow(0 0 12px rgba(117,21,24,0.5))' }}
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-                if (e.currentTarget.nextElementSibling) e.currentTarget.nextElementSibling.style.display = 'flex';
-              }}
+              src="/logoChronosTech.png"
+              alt="ChronosTek"
+              style={{ width: '80px', height: '80px', objectFit: 'contain', filter: 'drop-shadow(0 0 12px rgba(59,130,246,0.5))' }}
             />
-            {/* Fallback seguro: monograma vinho (não depende de arquivo) */}
-            <div style={{
-              display: 'none',
-              width: '80px',
-              height: '80px',
-              borderRadius: '16px',
-              background: '#751518',
-              color: '#fff',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '30px',
-              fontWeight: 800,
-              letterSpacing: '-1px',
-            }}>
-              CR
-            </div>
           </div>
           <h1 style={{
             fontSize: '26px',
@@ -112,10 +96,10 @@ export default function Login() {
             marginBottom: '4px',
             letterSpacing: '-0.5px'
           }}>
-            CR Recursos
+            ChronosTek
           </h1>
           <p style={{ color: '#64748b', fontSize: '13px' }}>
-            Assessoria de Trânsito
+            Sistema de Gestão · Assessoria de Trânsito
           </p>
         </div>
 
@@ -155,7 +139,7 @@ export default function Login() {
                 width: '100%',
                 padding: '12px 14px',
                 background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(117,21,24,0.25)',
+                border: '1px solid rgba(59,130,246,0.2)',
                 borderRadius: '8px',
                 color: '#fff',
                 fontSize: '14px',
@@ -187,7 +171,7 @@ export default function Login() {
                 width: '100%',
                 padding: '12px 14px',
                 background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(117,21,24,0.25)',
+                border: '1px solid rgba(59,130,246,0.2)',
                 borderRadius: '8px',
                 color: '#fff',
                 fontSize: '14px',
@@ -203,7 +187,7 @@ export default function Login() {
             style={{
               width: '100%',
               padding: '14px',
-              background: loading ? '#5a1012' : '#751518',
+              background: loading ? '#1e40af' : '#2563eb',
               color: 'white',
               border: 'none',
               borderRadius: '8px',
@@ -213,7 +197,7 @@ export default function Login() {
               fontWeight: '600',
               letterSpacing: '0.3px',
               transition: 'background 0.2s, transform 0.1s',
-              boxShadow: loading ? 'none' : '0 4px 16px rgba(117,21,24,0.4)'
+              boxShadow: loading ? 'none' : '0 4px 16px rgba(37,99,235,0.4)'
             }}
           >
             {loading ? 'Entrando...' : 'Entrar'}
@@ -227,7 +211,7 @@ export default function Login() {
           fontSize: '11px',
           letterSpacing: '0.5px'
         }}>
-          © CR Recursos · Todos os direitos reservados
+          © ChronosTek · Todos os direitos reservados
         </p>
       </div>
     </div>

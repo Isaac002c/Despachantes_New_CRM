@@ -89,11 +89,15 @@ const updateMultasLead = async (id, {
   name, cpf, cnh, first_license_date, birth_date,
   phone, source, status, notes, motivo
 }, tenant_id) => {
+  const normalizedStatus = VALID_STATUSES.includes(status) ? status : 'entrada';
+  // $13 é um parâmetro SEPARADO com o mesmo valor de status ($8). Reusar $8 na
+  // comparação causava "inconsistent types deduced for parameter $8" (status é
+  // varchar na atribuição e text no operador <>). Parâmetros distintos resolvem.
   const result = await pool.query(
     `UPDATE multas_leads
      SET name = $1, cpf = $2, cnh = $3, first_license_date = $4, birth_date = $5,
          phone = $6, source = $7, status = $8, notes = $9, motivo = $10,
-         stage_changed_at = CASE WHEN multas_leads.status <> $8 THEN NOW() ELSE multas_leads.stage_changed_at END,
+         stage_changed_at = CASE WHEN multas_leads.status <> $13 THEN NOW() ELSE multas_leads.stage_changed_at END,
          updated_at = NOW()
      WHERE id = $11 AND tenant_id = $12
      RETURNING *`,
@@ -105,10 +109,11 @@ const updateMultasLead = async (id, {
       birth_date      || null,
       phone           || null,
       source          || null,
-      VALID_STATUSES.includes(status) ? status : 'entrada',
+      normalizedStatus,
       notes           || null,
       motivo          || null,
       id, tenant_id,
+      normalizedStatus,
     ]
   );
   return result.rows[0];

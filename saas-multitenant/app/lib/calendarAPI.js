@@ -5,6 +5,9 @@ const BASE = '/api/calendar-events';
 export const getEvents = async (scope = 'upcoming') =>
   (await apiRequest(`${BASE}?scope=${scope}`)).data;
 
+export const getEventsRange = async (from, to) =>
+  (await apiRequest(`${BASE}?from=${from}&to=${to}`)).data;
+
 export const getUpcomingEvents = async (limit = 5) =>
   (await apiRequest(`${BASE}/upcoming?limit=${limit}`)).data;
 

@@ -4,8 +4,8 @@ import { Inter } from 'next/font/google';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata = {
-  title: 'CR Recursos — Assessoria de Trânsito',
-  description: 'Sistema de gestão de recursos de multas e processos de trânsito',
+  title: 'ChronosTek - CRM',
+  description: 'CRM Multitenant para gestao de leads e vendas',
   icons: {
     icon: '/icon.png',
     shortcut: '/icon.png',

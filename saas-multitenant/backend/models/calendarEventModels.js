@@ -106,4 +106,35 @@ const remove = async (id, tenant_id) => {
   return r.rows[0];
 };
 
-module.exports = { list, upcoming, getById, create, update, setStatus, remove };
+// Dia fechado? (existe um evento type='bloqueio' ativo naquele dia) — tenant-scoped
+const isDayClosed = async (tenant_id, event_date, excludeId = null) => {
+  const r = await pool.query(
+    `SELECT 1 FROM calendar_events
+      WHERE tenant_id = $1 AND event_date = $2 AND type = 'bloqueio' AND status <> 'cancelado'
+        AND ($3::uuid IS NULL OR id <> $3)
+      LIMIT 1`,
+    [tenant_id, event_date, excludeId]
+  );
+  return r.rowCount > 0;
+};
+
+// Conflito de horário na equipe (mesmo tenant, mesmo dia, horário sobreposto) — tenant-scoped.
+// Eventos sem horário (dia inteiro) não disputam horário; cancelados não contam; bloqueio não conta aqui.
+const hasTimeConflict = async (tenant_id, event_date, start_time, end_time, excludeId = null) => {
+  if (!start_time) return false;
+  const r = await pool.query(
+    `SELECT 1 FROM calendar_events
+      WHERE tenant_id = $1 AND event_date = $2 AND status <> 'cancelado' AND type <> 'bloqueio'
+        AND start_time IS NOT NULL
+        AND ($5::uuid IS NULL OR id <> $5)
+        AND (
+          start_time = $3::time
+          OR (start_time < COALESCE($4::time, $3::time) AND $3::time < COALESCE(end_time, start_time))
+        )
+      LIMIT 1`,
+    [tenant_id, event_date, start_time, end_time || null, excludeId]
+  );
+  return r.rowCount > 0;
+};
+
+module.exports = { list, upcoming, getById, create, update, setStatus, remove, isDayClosed, hasTimeConflict };
