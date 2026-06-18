@@ -385,7 +385,7 @@ export default function ClientDetail() {
       status:           contract.status           || '',
       notes:            contract.notes            || '',
       infraction_type:  contract.infraction_type  || '',
-      due_date:         contract.due_date ? contract.due_date.substring(0, 10) : '',
+      due_date:         isoToDisplay(contract.due_date),
       protocol_number:  contract.protocol_number  || '',
       protocol_date:    contract.protocol_date    ? contract.protocol_date.substring(0, 10) : '',
       protocol_status:  contract.protocol_status  || '',
@@ -410,7 +410,7 @@ export default function ClientDetail() {
       status:          contractForm.status,
       notes:           contractForm.notes           || null,
       infraction_type: contractForm.infraction_type || null,
-      due_date:        contractForm.due_date        || null,
+      due_date:        displayToIso(contractForm.due_date),
     };
 
     try {
@@ -1100,11 +1100,26 @@ export default function ClientDetail() {
                       </div>
                       <div className="form-group">
                         <label>Prazo</label>
-                        <input
-                          type="date"
-                          value={contractForm.due_date}
-                          onChange={e => setContractForm({ ...contractForm, due_date: e.target.value })}
-                        />
+                        {/* Aceita colar/digitar dd/mm/aaaa, ddmmaaaa, yyyy-mm-dd; datepicker auxiliar à direita.
+                            Estado guarda o texto exibido; converte para YYYY-MM-DD só ao salvar (sem new Date). */}
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <input
+                            type="text"
+                            value={contractForm.due_date}
+                            onChange={e => setContractForm({ ...contractForm, due_date: normalizeDate(e.target.value) })}
+                            placeholder="dd/mm/aaaa"
+                            inputMode="numeric"
+                            style={{ flex: 1 }}
+                          />
+                          <input
+                            type="date"
+                            value={displayToIso(contractForm.due_date) || ''}
+                            onChange={e => setContractForm({ ...contractForm, due_date: e.target.value ? isoToDisplay(e.target.value) : '' })}
+                            title="Escolher no calendário"
+                            aria-label="Escolher data no calendário"
+                            style={{ width: 42, flexShrink: 0, padding: '0 4px' }}
+                          />
+                        </div>
                       </div>
                       <div className="form-group">
                         <label>Observações</label>
@@ -1263,7 +1278,10 @@ function ProtocolItemForm({ form, setForm, onSubmit, onCancel, submitting, uploa
           <input type="text" value={form.protocol_number||''} onChange={e=>setForm(p=>({...p,protocol_number:e.target.value}))} placeholder="Ex.: 2024/00123" style={{ width:'100%', padding:'6px 8px', border:'1px solid #e2e8f0', borderRadius:6, fontSize:12 }} />
         </div>
         <div><label style={{ fontSize:11, color:'#64748b', display:'block', marginBottom:3 }}>Data</label>
-          <input type="date" value={form.protocol_date||''} onChange={e=>setForm(p=>({...p,protocol_date:e.target.value}))} style={{ width:'100%', padding:'6px 8px', border:'1px solid #e2e8f0', borderRadius:6, fontSize:12 }} />
+          <div style={{ display:'flex', gap:4 }}>
+            <input type="text" value={isoToDisplay(form.protocol_date||'')} onChange={e=>setForm(p=>({...p,protocol_date:normalizeDate(e.target.value)}))} placeholder="dd/mm/aaaa" inputMode="numeric" style={{ flex:1, padding:'6px 8px', border:'1px solid #e2e8f0', borderRadius:6, fontSize:12 }} />
+            <input type="date" value={displayToIso(form.protocol_date)||''} onChange={e=>setForm(p=>({...p,protocol_date: e.target.value? isoToDisplay(e.target.value):''}))} title="Calendário" aria-label="Escolher data" style={{ width:32, flexShrink:0, padding:0, border:'1px solid #e2e8f0', borderRadius:6, fontSize:12 }} />
+          </div>
         </div>
         <div><label style={{ fontSize:11, color:'#64748b', display:'block', marginBottom:3 }}>Status</label>
           <select value={form.protocol_status||'protocolado'} onChange={e=>setForm(p=>({...p,protocol_status:e.target.value}))} style={{ width:'100%', padding:'6px 8px', border:'1px solid #e2e8f0', borderRadius:6, fontSize:12, background:'#fff' }}>
@@ -1342,7 +1360,7 @@ function ProtocolPanel({ contract, onSave, onClose }) {
     e.preventDefault();
     setSaving(true);
     try {
-      const created = await createProtocol({ ...newForm, fine_id: contract.id });
+      const created = await createProtocol({ ...newForm, protocol_date: displayToIso(newForm.protocol_date), fine_id: contract.id });
       setProtocols(prev => [...prev, created]);
       setNewForm({ protocol_number:'', protocol_date:'', protocol_status:'protocolado', protocol_notes:'', protocol_file_url:'' });
       setShowAddForm(false);
@@ -1352,7 +1370,8 @@ function ProtocolPanel({ contract, onSave, onClose }) {
 
   const handleUpdateItem = async (proto, field, value) => {
     try {
-      const updated = await updateProtocol(proto.id, { ...proto, [field]: value });
+      const merged = { ...proto, [field]: value };
+      const updated = await updateProtocol(proto.id, { ...merged, protocol_date: displayToIso(merged.protocol_date) });
       setProtocols(prev => prev.map(p => p.id===proto.id ? updated : p));
     } catch (err) { setUploadError(err.message); }
   };
@@ -1453,7 +1472,7 @@ function ProtocolPanel({ contract, onSave, onClose }) {
                       const current = protocols.find(p=>p.id===proto.id) || proto;
                       setSaving(true);
                       try {
-                        const updated = await updateProtocol(current.id, current);
+                        const updated = await updateProtocol(current.id, { ...current, protocol_date: displayToIso(current.protocol_date) });
                         setProtocols(prev => prev.map(p=>p.id===current.id ? updated : p));
                         setEditingId(null);
                       } catch (err) { setUploadError(err.message); }

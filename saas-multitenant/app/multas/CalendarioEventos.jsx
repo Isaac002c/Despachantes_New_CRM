@@ -141,8 +141,8 @@ export default function CalendarioEventos() {
     <div className="ag-page">
       <div className="ag-head">
         <div>
-          <h2 className="ag-head-title">Calendário</h2>
-          <p className="ag-head-sub">Agenda de eventos e agendamentos da equipe.</p>
+          <h2 className="ag-head-title">Agenda</h2>
+          <p className="ag-head-sub">Eventos e agendamentos da equipe.</p>
         </div>
         <div className="cal-toggle">
           <button className={view === 'mes' ? 'active' : ''} onClick={() => setView('mes')}>Mês</button>

@@ -43,6 +43,14 @@ const urgencyOf = (v, overdue) => {
   return { color: '#475569', soft: '#f1f5f9' };                                       // mais distante
 };
 
+// Abas por urgência (Vencido / Hoje / Até 7 dias / Mais distante)
+const TABS = [
+  { key: 'vencidos', label: 'Vencidos',      color: '#dc2626', soft: '#fee2e2' },
+  { key: 'hoje',     label: 'Vence hoje',    color: '#ea580c', soft: '#ffedd5' },
+  { key: 'ate7',     label: 'Até 7 dias',    color: '#d97706', soft: '#fef3c7' },
+  { key: 'distante', label: 'Mais distante', color: '#475569', soft: '#f1f5f9' },
+];
+
 // ─── Item da agenda ─────────────────────────────────────────────────────────────
 
 function DeadlineItem({ item, overdue, onOpen }) {
@@ -115,6 +123,7 @@ export default function MultasAgenda() {
   const [upcoming, setUpcoming] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState(null);
+  const [tab, setTab]           = useState('vencidos');
 
   useEffect(() => { load(); }, []);
 
@@ -137,10 +146,17 @@ export default function MultasAgenda() {
   };
 
   const total = overdue.length + upcoming.length;
-  const prox7 = upcoming.filter((it) => {
+  const all = [...overdue, ...upcoming];
+  const buckets = { vencidos: [], hoje: [], ate7: [], distante: [] };
+  for (const it of all) {
     const d = diffDays(it.due_date);
-    return d != null && d <= 7;
-  }).length;
+    if (d == null) continue;
+    if (d < 0)        buckets.vencidos.push(it);
+    else if (d === 0) buckets.hoje.push(it);
+    else if (d <= 7)  buckets.ate7.push(it);
+    else              buckets.distante.push(it);
+  }
+  const activeTabInfo = TABS.find(t => t.key === tab) || TABS[0];
 
   if (loading) return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 0', gap: 14 }}>
@@ -153,8 +169,8 @@ export default function MultasAgenda() {
     <div className="ag-page">
       <div className="ag-head">
         <div>
-          <h2 className="ag-head-title">Agenda de Prazos</h2>
-          <p className="ag-head-sub">Prazos vencidos e próximos 30 dias dos seus processos.</p>
+          <h2 className="ag-head-title">Prazos</h2>
+          <p className="ag-head-sub">Prazos dos processos por urgência (próximos 30 dias).</p>
         </div>
         <button className="ag-refresh" onClick={load} disabled={loading}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -171,29 +187,59 @@ export default function MultasAgenda() {
         </div>
       )}
 
+      {/* Abas por urgência */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+        {TABS.map(t => {
+          const n = buckets[t.key].length;
+          const activeTab = tab === t.key;
+          return (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 999,
+                fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                border: '1px solid ' + (activeTab ? t.color : '#e2e8f0'),
+                background: activeTab ? t.soft : '#fff',
+                color: activeTab ? t.color : '#64748b',
+              }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: t.color }} />
+              {t.label}
+              <span style={{ fontSize: 11, fontWeight: 700, background: activeTab ? '#fff' : '#f1f5f9', color: t.color, padding: '1px 8px', borderRadius: 999 }}>{n}</span>
+            </button>
+          );
+        })}
+      </div>
+
       <div className="md-layout">
         <div className="md-main">
-          <Section
-            title="Vencidos" color="#dc2626" soft="#fee2e2"
-            items={overdue} overdue
-            emptyText="Nenhum prazo vencido."
-            onOpen={openClient}
-          />
-          <Section
-            title="Próximos prazos" color="#d97706" soft="#fef3c7"
-            items={upcoming} overdue={false}
-            emptyText="Nenhum prazo nos próximos 30 dias."
-            onOpen={openClient}
-          />
+          <div className="ag-card">
+            <div className="ag-card-head" style={{ '--accent': activeTabInfo.color, '--accent-soft': activeTabInfo.soft }}>
+              <span className="ag-card-dot" />
+              <span className="ag-card-title">{activeTabInfo.label}</span>
+              <span className="ag-card-count">{buckets[tab].length}</span>
+            </div>
+            {buckets[tab].length === 0 ? (
+              <div className="ag-empty">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                Nenhum prazo nesta categoria.
+              </div>
+            ) : (
+              <div className="ag-list">
+                {buckets[tab].map(it => (
+                  <DeadlineItem key={it.id} item={it} overdue={(diffDays(it.due_date) ?? 1) <= 0} onOpen={() => openClient(it)} />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <aside className="md-sidebar">
           <div className="ag-aside-card">
             <div className="ag-aside-title">Resumo</div>
-            <ResumoRow label="Total de prazos"  value={total}           color="#475569" />
-            <ResumoRow label="Vencidos"         value={overdue.length}  color="#dc2626" />
-            <ResumoRow label="Vence em 7 dias"  value={prox7}           color="#d97706" />
-            <ResumoRow label="Próximos 30 dias" value={upcoming.length} color="#0f172a" />
+            <ResumoRow label="Vencidos"      value={buckets.vencidos.length} color="#dc2626" />
+            <ResumoRow label="Vence hoje"    value={buckets.hoje.length}     color="#ea580c" />
+            <ResumoRow label="Até 7 dias"    value={buckets.ate7.length}     color="#d97706" />
+            <ResumoRow label="Mais distante" value={buckets.distante.length} color="#475569" />
+            <ResumoRow label="Total"         value={total}                   color="#0f172a" />
           </div>
           <div className="ag-aside-card">
             <div className="ag-aside-title">Legenda</div>
