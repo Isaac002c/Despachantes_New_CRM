@@ -4,9 +4,15 @@ if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL não definida nas variáveis de ambiente');
 }
 
+// SSL automático: Neon exige SSL (sslmode=require). O Postgres interno na VPS (rede
+// Docker) não usa SSL — basta usar sslmode=disable na DATABASE_URL (ou DB_SSL=false).
+// Mantém compatibilidade total com a connection string atual do Neon.
+const connectionString = process.env.DATABASE_URL;
+const sslDisabled = /sslmode=disable/i.test(connectionString) || process.env.DB_SSL === 'false';
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  connectionString,
+  ssl: sslDisabled ? false : { rejectUnauthorized: false },
   max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
