@@ -45,7 +45,8 @@ export default function Login() {
       
       localStorage.setItem('tenantId', data.tenant?.id || '');
 
-      router.push('/dashboard');
+      // Master Chronostek vai para o painel /master; demais usuários para o tenant.
+      router.push(userData.role === 'super_admin' ? '/master' : '/dashboard');
     } catch (err) {
       setError(err.message);
     } finally {

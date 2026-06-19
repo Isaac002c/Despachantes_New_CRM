@@ -130,7 +130,10 @@ function DashboardContent() {
     const userData   = localStorage.getItem('user');
     const tenantData = localStorage.getItem('tenant');
     if (!hasToken || !userData) { router.push('/login'); return; }
-    setUser(JSON.parse(userData));
+    const parsedUser = JSON.parse(userData);
+    // super_admin (Chronostek) não usa o dashboard de tenant — vai para o painel master.
+    if (parsedUser?.role === 'super_admin') { router.replace('/master'); return; }
+    setUser(parsedUser);
     setTenant(JSON.parse(tenantData || '{}'));
     setLoading(false);
   }, [router]);

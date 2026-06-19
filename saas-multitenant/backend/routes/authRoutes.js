@@ -97,7 +97,7 @@ router.post('/login',
       // Busca todos os usuários com esse e-mail (multi-tenant: pode haver mais de um)
       const result = await client.query(
         `SELECT u.id, u.name, u.email, u.password_hash, u.tenant_id, u.role,
-                t.name as tenant_name, t.slug as tenant_slug,
+                t.name as tenant_name, t.slug as tenant_slug, t.status as tenant_status,
                 t.logo_url as tenant_logo_url, t.brand_color as tenant_brand_color,
                 t.brand_color_dark as tenant_brand_color_dark, t.tagline as tenant_tagline
          FROM users u
@@ -125,6 +125,11 @@ router.post('/login',
         return sendJson(res, 401, { success: false, message: 'Credenciais inválidas' });
       }
 
+      // Bloqueia login se a empresa (tenant) estiver inativa — super_admin sempre pode entrar.
+      if (user.role !== 'super_admin' && user.tenant_status && user.tenant_status !== 'ativo') {
+        return sendJson(res, 403, { success: false, message: 'Empresa inativa. Contate o suporte da Chronostek.' });
+      }
+
       // Aviso operacional: mesmo e-mail em múltiplos tenants
       if (result.rows.length > 1) {
         console.warn(`[LOGIN] E-mail "${email}" existe em ${result.rows.length} tenants. Logando no primeiro com senha válida.`);
@@ -140,6 +145,9 @@ router.post('/login',
         getJWTSecret(),
         { expiresIn: '30d' }
       );
+
+      // Último acesso (não bloqueia o login se falhar)
+      await client.query('UPDATE users SET last_login = NOW() WHERE id = $1', [user.id]).catch(() => {});
 
       const cookieOptions = {
         httpOnly: true,

@@ -132,8 +132,9 @@ const requireAdmin = async (req, res, next) => {
       [req.userId]
     );
     
-    if (!userResult.rows[0] || userResult.rows[0].role !== 'admin') {
-      return res.status(403).json({ success: false, error: 'Acesso restrito a administradores' });
+    // Endurecido: rotas cross-tenant antigas agora exigem super_admin (evita vazamento entre tenants)
+    if (!userResult.rows[0] || userResult.rows[0].role !== 'super_admin') {
+      return res.status(403).json({ success: false, error: 'Acesso restrito ao painel master' });
     }
     
     next();

@@ -32,6 +32,7 @@ const fineProtocolRoutes  = require('./routes/fineProtocolRoutes');
 const approvalRoutes      = require('./routes/approvalRoutes');
 const companyRoutes       = require('./routes/companyRoutes');
 const calendarEventRoutes = require('./routes/calendarEventRoutes');
+const masterRoutes        = require('./routes/masterRoutes');
 
 const app = express();
 
@@ -163,6 +164,7 @@ app.use('/api/fine-protocols', fineProtocolRoutes);
 app.use('/api/approvals', approvalRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/calendar-events', calendarEventRoutes);
+app.use('/api/master', masterRoutes);
 
 // ============================================
 // HEALTH CHECK (sem autenticação — para uptime monitors)
