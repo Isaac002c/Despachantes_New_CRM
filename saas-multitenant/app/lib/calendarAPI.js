@@ -11,6 +11,10 @@ export const getEventsRange = async (from, to) =>
 export const getUpcomingEvents = async (limit = 5) =>
   (await apiRequest(`${BASE}/upcoming?limit=${limit}`)).data;
 
+// Usuários ativos do tenant para o select "Consultor" ([{ id, name }])
+export const getConsultants = async () =>
+  (await apiRequest(`${BASE}/consultants`)).data;
+
 export const createEvent = async (data) =>
   (await apiRequest(BASE, { method: 'POST', body: data })).data;
 
