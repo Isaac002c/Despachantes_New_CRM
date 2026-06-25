@@ -102,6 +102,7 @@ export default function CalendarioEventos() {
   const [form, setForm]       = useState(EMPTY);
   const [saving, setSaving]   = useState(false);
   const [modalError, setModalError] = useState(null);
+  const [viewEvent, setViewEvent] = useState(null);   // visualização (somente leitura) do agendamento
 
   // Modal de bloqueio (dia inteiro / manhã / tarde / personalizado)
   const [blockModal, setBlockModal] = useState(null); // { id?, date, mode, start, end }
@@ -159,6 +160,7 @@ export default function CalendarioEventos() {
     });
     setModalError(null); setShowModal(true);
   };
+  const openView = (ev) => { setDayDrawer(null); setViewEvent(ev); };   // abre a visualização read-only (fecha o drawer do dia)
   const save = async (e) => {
     e.preventDefault(); setModalError(null);
     if (!form.title.trim()) { setModalError('Nome da pessoa agendada é obrigatório.'); return; }
@@ -354,7 +356,7 @@ export default function CalendarioEventos() {
                   <span className="ag-card-count">{groups[date].length}</span>
                 </div>
                 <div className="ag-list">
-                  {groups[date].map(ev => <EventRow key={ev.id} ev={ev} onEdit={openEdit} onCancel={cancelEvent} onRemove={removeEvent} />)}
+                  {groups[date].map(ev => <EventRow key={ev.id} ev={ev} onView={openView} onEdit={openEdit} onCancel={cancelEvent} onRemove={removeEvent} />)}
                 </div>
               </div>
             ))}
@@ -439,9 +441,57 @@ export default function CalendarioEventos() {
                 <p style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: '16px 0' }}>Nenhum evento neste dia.</p>
               ) : (
                 <div className="ag-list" style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
-                  {normal.map(ev => <EventRow key={ev.id} ev={ev} onEdit={openEdit} onCancel={cancelEvent} onRemove={removeEvent} />)}
+                  {normal.map(ev => <EventRow key={ev.id} ev={ev} onView={openView} onEdit={openEdit} onCancel={cancelEvent} onRemove={removeEvent} />)}
                 </div>
               )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Modal de visualização (somente leitura) ── */}
+      {viewEvent && (() => {
+        const ev = viewEvent;
+        const ti = typeInfo(ev.type);
+        const cancelled = ev.status === 'cancelado';
+        const horario = ev.start_time && ev.end_time ? `${fmtTime(ev.start_time)} às ${fmtTime(ev.end_time)}`
+                      : ev.start_time ? fmtTime(ev.start_time) : 'Dia inteiro';
+        return (
+          <div className="modal-overlay" onClick={() => setViewEvent(null)}>
+            <div className="modal-content" style={{ maxWidth: 520 }} onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <div>
+                  <h2 style={{ fontSize: 18, fontWeight: 700, color: '#0f172a' }}>{ev.title}</h2>
+                  <div style={{ display: 'flex', gap: 7, marginTop: 6, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: ti.color, background: `${ti.color}18`, padding: '2px 10px', borderRadius: 999, textTransform: 'uppercase', letterSpacing: '0.3px' }}>{ti.label}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: cancelled ? '#94a3b8' : ti.color, background: cancelled ? '#f1f5f9' : `${ti.color}18`, padding: '2px 10px', borderRadius: 999 }}>{STATUS_LABEL[ev.status] || 'Agendado'}</span>
+                  </div>
+                </div>
+                <button type="button" onClick={() => setViewEvent(null)} className="btn-close">✕</button>
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <DetailRow label="Data" value={fmtDateLong(ev.event_date)} />
+                <DetailRow label="Horário" value={horario} />
+                <DetailRow label="Serviço" value={ev.service_name} />
+                <DetailRow label="Consultor" value={ev.responsible_name} />
+                <DetailRow label="Cliente" value={ev.client_name} />
+                <DetailRow label="CPF" value={ev.attendee_cpf ? maskCpf(ev.attendee_cpf) : ''} />
+                <DetailRow label="CNH" value={ev.attendee_cnh} />
+                <DetailRow label="Primeira habilitação" value={isoToDisplay(ev.attendee_first_cnh)} />
+                <DetailRow label="Data de nascimento" value={isoToDisplay(ev.attendee_birth_date)} />
+                <DetailRow label="Observações" value={ev.description} />
+              </div>
+
+              <div className="form-actions" style={{ justifyContent: 'space-between' }}>
+                <button type="button" className="btn-icon danger" title="Excluir" onClick={() => { setViewEvent(null); removeEvent(ev); }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                </button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {!cancelled && <button type="button" className="btn-secondary" onClick={() => { setViewEvent(null); cancelEvent(ev); }}>Cancelar agendamento</button>}
+                  <button type="button" className="btn-primary" onClick={() => { setViewEvent(null); openEdit(ev); }}>Editar</button>
+                </div>
+              </div>
             </div>
           </div>
         );
@@ -564,12 +614,19 @@ export default function CalendarioEventos() {
 }
 
 // Linha de evento reutilizável (lista e drawer do dia)
-function EventRow({ ev, onEdit, onCancel, onRemove }) {
+function EventRow({ ev, onView, onEdit, onCancel, onRemove }) {
   const ti = typeInfo(ev.type);
   const cancelled = ev.status === 'cancelado';
   const isBlock = ev.type === 'bloqueio';
+  const clickable = !isBlock && typeof onView === 'function';   // bloqueio não tem visualização
   return (
-    <div className="ag-item" style={{ cursor: 'default', opacity: cancelled ? 0.55 : 1, borderLeft: `3px solid ${ti.color}` }}>
+    <div className="ag-item"
+      style={{ cursor: clickable ? 'pointer' : 'default', opacity: cancelled ? 0.55 : 1, borderLeft: `3px solid ${ti.color}` }}
+      onClick={clickable ? () => onView(ev) : undefined}
+      role={clickable ? 'button' : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onKeyDown={clickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onView(ev); } } : undefined}
+    >
       <div className="ag-ava" style={{ background: `${ti.color}18`, color: ti.color, fontSize: 12, fontWeight: 700 }}>
         {isBlock ? '🔒' : (fmtTime(ev.start_time) || '--:--')}
       </div>
@@ -588,18 +645,29 @@ function EventRow({ ev, onEdit, onCancel, onRemove }) {
         {!isBlock && (cancelled
           ? <span className="ag-pill" style={{ background: '#f1f5f9', color: '#94a3b8' }}>Cancelado</span>
           : <span className="ag-pill" style={{ background: `${ti.color}18`, color: ti.color }}>{STATUS_LABEL[ev.status] || 'Agendado'}</span>)}
-        <button className="btn-icon" title="Editar" onClick={() => onEdit(ev)}>
+        <button className="btn-icon" title="Editar" onClick={(e) => { e.stopPropagation(); onEdit(ev); }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
         {!isBlock && !cancelled && (
-          <button className="btn-icon" title="Cancelar" onClick={() => onCancel(ev)} style={{ color: '#f59e0b' }}>
+          <button className="btn-icon" title="Cancelar" onClick={(e) => { e.stopPropagation(); onCancel(ev); }} style={{ color: '#f59e0b' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
           </button>
         )}
-        <button className="btn-icon danger" title={isBlock ? 'Remover bloqueio' : 'Excluir'} onClick={() => onRemove(ev)}>
+        <button className="btn-icon danger" title={isBlock ? 'Remover bloqueio' : 'Excluir'} onClick={(e) => { e.stopPropagation(); onRemove(ev); }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
         </button>
       </div>
+    </div>
+  );
+}
+
+// Linha label/valor do modal de visualização — oculta quando não há valor
+function DetailRow({ label, value }) {
+  if (value == null || value === '') return null;
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, padding: '9px 0', borderBottom: '1px solid #f1f5f9', fontSize: 13.5 }}>
+      <span style={{ color: '#94a3b8', fontWeight: 600, flexShrink: 0 }}>{label}</span>
+      <span style={{ color: '#1e293b', fontWeight: 600, textAlign: 'right', wordBreak: 'break-word' }}>{value}</span>
     </div>
   );
 }
