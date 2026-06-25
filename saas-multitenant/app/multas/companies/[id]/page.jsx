@@ -8,7 +8,7 @@ import {
   getVehicleFineCounts, getUnlinkedFines, linkFineToVehicle,
 } from '../../../lib/companiesAPI';
 import {
-  formatDate, getPrazoStyle, getStatusStyle, getStatusLabel, maskCnpj,
+  formatDate, getPrazoStyle, getStatusStyle, getStatusLabel, maskCnpj, maskCpfCnpj,
 } from '../../../lib/processConstants';
 import DocumentsSection from '../../components/DocumentsSection';
 import VehicleFormModal from '../../components/VehicleFormModal';
@@ -23,6 +23,8 @@ const maskPhone = (value) => {
 };
 
 const COMPANY_DOC_TYPES = ['Contrato Social', 'Cartão CNPJ', 'Procuração', 'Contrato de Prestação', 'Comprovante', 'Outros'];
+// Categoria reservada aos relatórios mensais — fica numa seção própria, separada dos documentos gerais.
+const RELATORIO_MENSAL_CAT = 'Relatório Mensal';
 
 export default function CompanyDetail() {
   const router = useRouter();
@@ -210,7 +212,7 @@ export default function CompanyDetail() {
         ) : (
           <table className="data-table" style={{ border: 'none', borderRadius: 0 }}>
             <thead>
-              <tr><th>Placa</th><th>Condutor</th><th>RENAVAM</th><th>Processos</th><th>Status</th><th style={{ width: 110 }}>Ações</th></tr>
+              <tr><th>Placa</th><th>RENAVAM</th><th>CPF/CNPJ</th><th>Processos</th><th>Condutor</th><th>Status</th><th style={{ width: 110 }}>Ações</th></tr>
             </thead>
             <tbody>
               {vehicles.map(v => (
@@ -221,13 +223,14 @@ export default function CompanyDetail() {
                       {v.plate || '—'}
                     </button>
                   </td>
-                  <td>{v.driver_name || '—'}</td>
                   <td style={{ color: '#475569' }}>{v.renavam || '—'}</td>
+                  <td style={{ color: '#475569' }}>{maskCpfCnpj(v.owner_document) || '—'}</td>
                   <td>
                     <span style={{ display: 'inline-block', minWidth: 24, textAlign: 'center', background: '#f1f5f9', color: '#475569', borderRadius: 10, padding: '1px 9px', fontSize: 12, fontWeight: 600 }}>
                       {fineCounts[v.id] || 0}
                     </span>
                   </td>
+                  <td>{v.driver_name || '—'}</td>
                   <td><span className={`client-status-badge ${v.status === 'inativo' ? 'negociacao' : 'fechado'}`}>{v.status === 'inativo' ? 'Inativo' : 'Ativo'}</span></td>
                   <td>
                     <div className="actions-cell">
@@ -253,7 +256,7 @@ export default function CompanyDetail() {
       </div>
 
       {/* Documentos da Empresa */}
-      <DocumentsSection scope={{ company_id: companyId }} title="Documentos da Empresa" docTypes={COMPANY_DOC_TYPES} isAdmin={isAdmin} />
+      <DocumentsSection scope={{ company_id: companyId }} title="Documentos da Empresa" docTypes={COMPANY_DOC_TYPES} excludeCategories={[RELATORIO_MENSAL_CAT]} isAdmin={isAdmin} />
 
       {/* Processos sem veículo vinculado (sob demanda, fechado por padrão) */}
       <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden' }}>
@@ -301,6 +304,15 @@ export default function CompanyDetail() {
           </div>
         )}
       </div>
+
+      {/* Relatórios Mensais — anexo do relatório que a empresa monta/envia todo mês (fica salvo no sistema) */}
+      <DocumentsSection
+        scope={{ company_id: companyId }}
+        title="Relatórios Mensais"
+        subtitle="Anexe aqui o relatório de cada mês — fica salvo no sistema"
+        lockedCategory={RELATORIO_MENSAL_CAT}
+        isAdmin={isAdmin}
+      />
 
       {/* Modal Empresa */}
       {showCompanyModal && (

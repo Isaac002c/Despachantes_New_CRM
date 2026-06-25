@@ -4,12 +4,17 @@
 //   { company_id } | { vehicle_id } | { client_id }
 // Reusa as MESMAS APIs (documentsAPI + uploadsAPI) e storage por tenant.
 // Exclusão direta apenas para admin (mesma regra do DELETE /api/documents).
+//
+// Props opcionais de categoria (todas as seções compartilham o mesmo scope no banco,
+// então usamos a categoria para separar listas dentro do mesmo escopo):
+//   lockedCategory     -> seção dedicada: lista só docs dessa categoria e trava o upload nela
+//   excludeCategories  -> esconde docs dessas categorias (ex.: tirar "Relatório Mensal" dos docs gerais)
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { getDocuments, createDocument, deleteDocument } from '../../lib/documentsAPI';
 import { uploadFile } from '../../lib/uploadsAPI';
 
-export default function DocumentsSection({ scope, title = 'Documentos', docTypes = [], isAdmin = false }) {
+export default function DocumentsSection({ scope, title = 'Documentos', subtitle = null, docTypes = [], isAdmin = false, lockedCategory = null, excludeCategories = [] }) {
   const [docs, setDocs]       = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShow]  = useState(false);
@@ -49,7 +54,7 @@ export default function DocumentsSection({ scope, title = 'Documentos', docTypes
         file_name:   form.name || uploaded.originalName,
         file_type:   uploaded.mimeType,
         file_size:   uploaded.size,
-        category:    form.type || 'outros',
+        category:    lockedCategory || form.type || 'outros',
         description: form.description || null,
       });
       setForm({ name: '', type: '', description: '' });
@@ -67,12 +72,19 @@ export default function DocumentsSection({ scope, title = 'Documentos', docTypes
     catch (err) { setError(err.message); }
   };
 
+  // Seção dedicada (lockedCategory) mostra só a sua categoria; senão, pode esconder categorias.
+  const visibleDocs = lockedCategory
+    ? docs.filter(d => (d.category || '') === lockedCategory)
+    : (excludeCategories.length
+        ? docs.filter(d => !excludeCategories.includes(d.category))
+        : docs);
+
   return (
     <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid #f1f5f9' }}>
         <div>
           <h2 style={{ fontSize: 15, fontWeight: 700, color: '#1e293b', margin: 0 }}>{title}</h2>
-          <p style={{ fontSize: 12, color: '#94a3b8', margin: '2px 0 0' }}>{docs.length} documento(s)</p>
+          <p style={{ fontSize: 12, color: '#94a3b8', margin: '2px 0 0' }}>{subtitle || `${visibleDocs.length} documento(s)`}</p>
         </div>
         <button onClick={() => { setError(null); setShow(true); }} className="btn-primary" style={{ background: '#475569', borderColor: '#475569' }}>+ Documento</button>
       </div>
@@ -81,11 +93,11 @@ export default function DocumentsSection({ scope, title = 'Documentos', docTypes
 
       {loading ? (
         <div style={{ padding: 20, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>Carregando...</div>
-      ) : docs.length === 0 ? (
+      ) : visibleDocs.length === 0 ? (
         <div style={{ padding: 24, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>Nenhum documento anexado.</div>
       ) : (
         <div className="cd-doc-list" style={{ padding: 12 }}>
-          {docs.map((doc) => (
+          {visibleDocs.map((doc) => (
             <div key={doc.id} className="cd-doc-item">
               <div className="cd-doc-icon">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -127,19 +139,23 @@ export default function DocumentsSection({ scope, title = 'Documentos', docTypes
                 <label>Arquivo (PDF, JPG, PNG · máx. 10 MB)</label>
                 <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={(e) => setFile(e.target.files[0] || null)} />
               </div>
-              <div className="form-row">
-                <div className="form-group"><label>Nome/Identificação</label><input value={form.name} onChange={(e) => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Opcional" /></div>
-                <div className="form-group"><label>Tipo</label>
-                  {docTypes.length > 0 ? (
-                    <select value={form.type} onChange={(e) => setForm(p => ({ ...p, type: e.target.value }))}>
-                      <option value="">Selecione...</option>
-                      {docTypes.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  ) : (
-                    <input value={form.type} onChange={(e) => setForm(p => ({ ...p, type: e.target.value }))} placeholder="Opcional" />
-                  )}
+              {lockedCategory ? (
+                <div className="form-group"><label>Nome/Identificação</label><input value={form.name} onChange={(e) => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Ex.: Relatório Junho/2026" /></div>
+              ) : (
+                <div className="form-row">
+                  <div className="form-group"><label>Nome/Identificação</label><input value={form.name} onChange={(e) => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Opcional" /></div>
+                  <div className="form-group"><label>Tipo</label>
+                    {docTypes.length > 0 ? (
+                      <select value={form.type} onChange={(e) => setForm(p => ({ ...p, type: e.target.value }))}>
+                        <option value="">Selecione...</option>
+                        {docTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    ) : (
+                      <input value={form.type} onChange={(e) => setForm(p => ({ ...p, type: e.target.value }))} placeholder="Opcional" />
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
               <div className="form-group"><label>Descrição</label><textarea rows={2} value={form.description} onChange={(e) => setForm(p => ({ ...p, description: e.target.value }))} /></div>
               <div className="form-actions">
                 <button type="button" className="btn-secondary" onClick={() => setShow(false)}>Cancelar</button>
