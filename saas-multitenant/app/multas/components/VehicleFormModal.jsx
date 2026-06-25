@@ -3,7 +3,7 @@
 // Modal de cadastro/edição de veículo, compartilhado entre a tela da Empresa e a
 // tela de detalhe do Veículo (sem duplicar formulário/validações).
 //
-// Campos de interface: Placa (obrigatória), CPF/CNPJ do proprietário/responsável,
+// Campos de interface: Placa (obrigatória), RENAVAM, CPF/CNPJ do proprietário/responsável,
 // Nome do condutor, CPF do condutor, CNH do condutor, Status.
 // Ano/Marca/Modelo/Observações foram REMOVIDOS da interface mas seguem no banco:
 // como não enviamos essas chaves, o back-end preserva os valores legados na edição.
@@ -17,6 +17,7 @@ export default function VehicleFormModal({ companyId, vehicle, onClose, onSaved 
   const [form, setForm] = useState({
     plate: vehicle?.plate || '',
     status: vehicle?.status || 'ativo',
+    renavam: vehicle?.renavam || '',
     owner_document: maskCpfCnpj(vehicle?.owner_document || ''),
     driver_name: vehicle?.driver_name || '',
     driver_cpf: maskCpf(vehicle?.driver_cpf || ''),
@@ -35,6 +36,7 @@ export default function VehicleFormModal({ companyId, vehicle, onClose, onSaved 
     const payload = {
       plate: form.plate.trim().toUpperCase(),
       status: form.status,
+      renavam: form.renavam || null,
       owner_document: onlyDigits(form.owner_document),
       driver_name: form.driver_name || null,
       driver_cpf: onlyDigits(form.driver_cpf),
@@ -66,9 +68,15 @@ export default function VehicleFormModal({ companyId, vehicle, onClose, onSaved 
               </select>
             </div>
           </div>
-          <div className="form-group">
-            <label>CPF/CNPJ do proprietário/responsável</label>
-            <input value={form.owner_document} onChange={e => setForm(p => ({ ...p, owner_document: maskCpfCnpj(e.target.value) }))} inputMode="numeric" placeholder="CPF ou CNPJ do dono do veículo" />
+          <div className="form-row">
+            <div className="form-group">
+              <label>RENAVAM</label>
+              <input value={form.renavam} onChange={e => setForm(p => ({ ...p, renavam: e.target.value.replace(/\D/g, '') }))} inputMode="numeric" placeholder="Somente números" />
+            </div>
+            <div className="form-group">
+              <label>CPF/CNPJ do proprietário/responsável</label>
+              <input value={form.owner_document} onChange={e => setForm(p => ({ ...p, owner_document: maskCpfCnpj(e.target.value) }))} inputMode="numeric" placeholder="CPF ou CNPJ do dono do veículo" />
+            </div>
           </div>
           <div className="form-group"><label>Nome do condutor</label><input value={form.driver_name} onChange={e => setForm(p => ({ ...p, driver_name: e.target.value }))} /></div>
           <div className="form-row">
