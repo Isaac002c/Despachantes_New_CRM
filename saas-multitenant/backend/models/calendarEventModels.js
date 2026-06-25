@@ -8,6 +8,17 @@ const pool = require('../config/db');
 const toStrOrNull  = (v) => (v === '' || v === undefined ? null : v);
 const toTimeOrNull = (v) => (v === '' || v == null ? null : v);
 const toUuidOrNull = (v) => (v === '' || v == null ? null : v);
+const toDateOrNull = (v) => (v === '' || v == null ? null : v);
+const toIntOrNull  = (v) => {
+  if (v === '' || v == null) return null;
+  const n = parseInt(v, 10);
+  return Number.isNaN(n) ? null : n;
+};
+const digitsOrNull = (v) => {
+  if (v === '' || v == null) return null;
+  const d = String(v).replace(/\D/g, '');
+  return d || null;
+};
 
 // scope: 'upcoming' (>= hoje) | 'past' (< hoje) | 'all'; ou range from/to
 const list = async (tenant_id, { scope = 'upcoming', from, to } = {}) => {
@@ -23,10 +34,11 @@ const list = async (tenant_id, { scope = 'upcoming', from, to } = {}) => {
   }
   const order = scope === 'past' ? 'DESC' : 'ASC';
   const r = await pool.query(
-    `SELECT e.*, c.name AS client_name, u.name AS responsible_name
+    `SELECT e.*, c.name AS client_name, u.name AS responsible_name, st.label AS service_name
        FROM calendar_events e
-       LEFT JOIN clients c ON e.client_id = c.id AND c.tenant_id = e.tenant_id
-       LEFT JOIN users   u ON e.responsible_user_id = u.id
+       LEFT JOIN clients c       ON e.client_id = c.id AND c.tenant_id = e.tenant_id
+       LEFT JOIN users   u       ON e.responsible_user_id = u.id
+       LEFT JOIN service_types st ON e.service_type_id = st.id
       ${where}
       ORDER BY e.event_date ${order}, e.start_time ASC NULLS LAST
       LIMIT 500`,
@@ -40,7 +52,7 @@ const upcoming = async (tenant_id, limit = 5) => {
     `SELECT e.*, c.name AS client_name
        FROM calendar_events e
        LEFT JOIN clients c ON e.client_id = c.id AND c.tenant_id = e.tenant_id
-      WHERE e.tenant_id = $1 AND e.status <> 'cancelado' AND e.event_date >= CURRENT_DATE
+      WHERE e.tenant_id = $1 AND e.status <> 'cancelado' AND e.type <> 'bloqueio' AND e.event_date >= CURRENT_DATE
       ORDER BY e.event_date ASC, e.start_time ASC NULLS LAST
       LIMIT $2`,
     [tenant_id, limit]
@@ -53,9 +65,21 @@ const getById = async (id, tenant_id) => {
   return r.rows[0];
 };
 
+// Usuários ativos do tenant para o select "Consultor" (apenas id + nome, sem dados sensíveis).
+const listConsultants = async (tenant_id) => {
+  const r = await pool.query(
+    `SELECT id, name FROM users
+      WHERE tenant_id = $1 AND COALESCE(is_active, true) = true
+      ORDER BY name ASC`,
+    [tenant_id]
+  );
+  return r.rows;
+};
+
 const create = async ({
   tenant_id, title, description, event_date, start_time, end_time,
-  type, client_id, fine_id, responsible_user_id, status, created_by
+  type, client_id, fine_id, responsible_user_id, status, created_by,
+  service_type_id, attendee_cpf, attendee_cnh, attendee_first_cnh, attendee_birth_date,
 }) => {
   if (!tenant_id)   throw new Error('tenant_id é obrigatório');
   if (!title)       throw new Error('title é obrigatório');
@@ -63,13 +87,16 @@ const create = async ({
   const r = await pool.query(
     `INSERT INTO calendar_events
        (tenant_id, title, description, event_date, start_time, end_time, type,
-        client_id, fine_id, responsible_user_id, status, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+        client_id, fine_id, responsible_user_id, status, created_by,
+        service_type_id, attendee_cpf, attendee_cnh, attendee_first_cnh, attendee_birth_date)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
     [
       tenant_id, title, toStrOrNull(description), event_date,
       toTimeOrNull(start_time), toTimeOrNull(end_time), type || 'outro',
       toUuidOrNull(client_id), toUuidOrNull(fine_id), toUuidOrNull(responsible_user_id),
       status || 'agendado', toUuidOrNull(created_by),
+      toIntOrNull(service_type_id), digitsOrNull(attendee_cpf), digitsOrNull(attendee_cnh),
+      toDateOrNull(attendee_first_cnh), toDateOrNull(attendee_birth_date),
     ]
   );
   return r.rows[0];
@@ -77,17 +104,23 @@ const create = async ({
 
 const update = async (id, {
   title, description, event_date, start_time, end_time,
-  type, client_id, fine_id, responsible_user_id, status
+  type, client_id, fine_id, responsible_user_id, status,
+  service_type_id, attendee_cpf, attendee_cnh, attendee_first_cnh, attendee_birth_date,
 }, tenant_id) => {
   const r = await pool.query(
     `UPDATE calendar_events
         SET title=$1, description=$2, event_date=$3, start_time=$4, end_time=$5, type=$6,
-            client_id=$7, fine_id=$8, responsible_user_id=$9, status=$10, updated_at=NOW()
-      WHERE id=$11 AND tenant_id=$12 RETURNING *`,
+            client_id=$7, fine_id=$8, responsible_user_id=$9, status=$10,
+            service_type_id=$11, attendee_cpf=$12, attendee_cnh=$13,
+            attendee_first_cnh=$14, attendee_birth_date=$15, updated_at=NOW()
+      WHERE id=$16 AND tenant_id=$17 RETURNING *`,
     [
       title, toStrOrNull(description), event_date, toTimeOrNull(start_time), toTimeOrNull(end_time),
       type || 'outro', toUuidOrNull(client_id), toUuidOrNull(fine_id), toUuidOrNull(responsible_user_id),
-      status || 'agendado', id, tenant_id,
+      status || 'agendado',
+      toIntOrNull(service_type_id), digitsOrNull(attendee_cpf), digitsOrNull(attendee_cnh),
+      toDateOrNull(attendee_first_cnh), toDateOrNull(attendee_birth_date),
+      id, tenant_id,
     ]
   );
   return r.rows[0];
@@ -106,11 +139,15 @@ const remove = async (id, tenant_id) => {
   return r.rows[0];
 };
 
-// Dia fechado? (existe um evento type='bloqueio' ativo naquele dia) — tenant-scoped
+// ── Bloqueios (dia inteiro + parciais) ──────────────────────────────────────
+// Bloqueio = type='bloqueio'. Dia inteiro = start_time NULL. Parcial = [start_time, end_time).
+
+// Dia TOTALMENTE fechado? (existe bloqueio de dia inteiro — start_time NULL). Tenant-scoped.
 const isDayClosed = async (tenant_id, event_date, excludeId = null) => {
   const r = await pool.query(
     `SELECT 1 FROM calendar_events
       WHERE tenant_id = $1 AND event_date = $2 AND type = 'bloqueio' AND status <> 'cancelado'
+        AND start_time IS NULL
         AND ($3::uuid IS NULL OR id <> $3)
       LIMIT 1`,
     [tenant_id, event_date, excludeId]
@@ -118,8 +155,26 @@ const isDayClosed = async (tenant_id, event_date, excludeId = null) => {
   return r.rowCount > 0;
 };
 
-// Conflito de horário na equipe (mesmo tenant, mesmo dia, horário sobreposto) — tenant-scoped.
-// Eventos sem horário (dia inteiro) não disputam horário; cancelados não contam; bloqueio não conta aqui.
+// Um EVENTO novo cai dentro de um bloqueio PARCIAL? Retorna o bloqueio conflitante (ou undefined).
+// Evento sem horário (start NULL) conflita com qualquer bloqueio parcial do dia.
+const eventBlockedByPartial = async (tenant_id, event_date, start_time, end_time, excludeId = null) => {
+  const r = await pool.query(
+    `SELECT title, start_time, end_time FROM calendar_events
+      WHERE tenant_id = $1 AND event_date = $2 AND type = 'bloqueio' AND status <> 'cancelado'
+        AND start_time IS NOT NULL
+        AND ($5::uuid IS NULL OR id <> $5)
+        AND (
+          $3::time IS NULL
+          OR (start_time < COALESCE($4::time, $3::time) AND $3::time < COALESCE(end_time, start_time))
+        )
+      ORDER BY start_time ASC
+      LIMIT 1`,
+    [tenant_id, event_date, start_time || null, end_time || null, excludeId]
+  );
+  return r.rows[0];
+};
+
+// Conflito de horário na equipe entre EVENTOS (não-bloqueio). Mantém comportamento atual.
 const hasTimeConflict = async (tenant_id, event_date, start_time, end_time, excludeId = null) => {
   if (!start_time) return false;
   const r = await pool.query(
@@ -137,4 +192,43 @@ const hasTimeConflict = async (tenant_id, event_date, start_time, end_time, excl
   return r.rowCount > 0;
 };
 
-module.exports = { list, upcoming, getById, create, update, setStatus, remove, isDayClosed, hasTimeConflict };
+// Ao criar/editar um BLOQUEIO: eventos (não-bloqueio) que conflitam com o período.
+// Bloqueio dia inteiro (start NULL) conflita com todos; evento sem horário conflita com qualquer bloqueio.
+const blockConflictEvents = async (tenant_id, event_date, start_time, end_time, excludeId = null) => {
+  const r = await pool.query(
+    `SELECT id, title, start_time, end_time FROM calendar_events
+      WHERE tenant_id = $1 AND event_date = $2 AND type <> 'bloqueio' AND status <> 'cancelado'
+        AND ($5::uuid IS NULL OR id <> $5)
+        AND (
+          $3::time IS NULL
+          OR start_time IS NULL
+          OR (start_time < COALESCE($4::time, $3::time) AND $3::time < COALESCE(end_time, start_time))
+        )
+      ORDER BY start_time ASC NULLS FIRST
+      LIMIT 20`,
+    [tenant_id, event_date, start_time || null, end_time || null, excludeId]
+  );
+  return r.rows;
+};
+
+// Ao criar/editar um BLOQUEIO: já existe outro bloqueio sobreposto no dia?
+const blockOverlapsBlock = async (tenant_id, event_date, start_time, end_time, excludeId = null) => {
+  const r = await pool.query(
+    `SELECT 1 FROM calendar_events
+      WHERE tenant_id = $1 AND event_date = $2 AND type = 'bloqueio' AND status <> 'cancelado'
+        AND ($5::uuid IS NULL OR id <> $5)
+        AND (
+          $3::time IS NULL
+          OR start_time IS NULL
+          OR (start_time < COALESCE($4::time, $3::time) AND $3::time < COALESCE(end_time, start_time))
+        )
+      LIMIT 1`,
+    [tenant_id, event_date, start_time || null, end_time || null, excludeId]
+  );
+  return r.rowCount > 0;
+};
+
+module.exports = {
+  list, upcoming, getById, listConsultants, create, update, setStatus, remove,
+  isDayClosed, eventBlockedByPartial, hasTimeConflict, blockConflictEvents, blockOverlapsBlock,
+};

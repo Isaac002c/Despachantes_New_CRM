@@ -4,12 +4,40 @@ const model   = require('../models/calendarEventModels');
 
 const VALID_STATUS = ['agendado', 'concluido', 'cancelado'];
 
-// Bloqueio de salvamento: dia fechado ou conflito de horário (tenant inteiro).
-// Eventos type='bloqueio' (fechar agenda) não passam por essa checagem.
+const fmtT = (t) => (t ? String(t).substring(0, 5) : null);
+
+// Bloqueio de salvamento (tenant inteiro). Dois fluxos:
+//  - BLOQUEIO (type='bloqueio'): não pode sobrepor outro bloqueio nem conflitar com evento existente.
+//  - EVENTO normal: barrado por dia fechado (bloqueio integral), bloqueio parcial sobreposto
+//    ou conflito de horário com outro evento.
 async function blockedReason(tenantId, body, excludeId = null) {
-  if ((body.type || 'outro') === 'bloqueio') return null;
+  const isBlock = (body.type || 'outro') === 'bloqueio';
+
+  if (isBlock) {
+    if (await model.blockOverlapsBlock(tenantId, body.event_date, body.start_time, body.end_time, excludeId)) {
+      return 'Já existe um bloqueio sobreposto neste período. Ajuste o horário.';
+    }
+    const conflicts = await model.blockConflictEvents(tenantId, body.event_date, body.start_time, body.end_time, excludeId);
+    if (conflicts.length > 0) {
+      const lista = conflicts.map(c => {
+        const ini = fmtT(c.start_time);
+        const fim = fmtT(c.end_time);
+        const hora = ini ? ` (${ini}${fim ? '–' + fim : ''})` : ' (dia inteiro)';
+        return `${c.title}${hora}`;
+      }).join(', ');
+      return `Não é possível bloquear: há evento(s) neste período — ${lista}. Resolva o conflito antes.`;
+    }
+    return null;
+  }
+
   if (await model.isDayClosed(tenantId, body.event_date, excludeId)) {
     return 'Agenda fechada neste dia. Reabra a agenda para poder agendar.';
+  }
+  const partial = await model.eventBlockedByPartial(tenantId, body.event_date, body.start_time, body.end_time, excludeId);
+  if (partial) {
+    const ini = fmtT(partial.start_time);
+    const fim = fmtT(partial.end_time);
+    return `Horário bloqueado na agenda (${ini ? `${ini}${fim ? '–' + fim : ''}` : 'dia inteiro'}). Escolha outro horário.`;
   }
   if (await model.hasTimeConflict(tenantId, body.event_date, body.start_time, body.end_time, excludeId)) {
     return 'Conflito de horário: já existe um agendamento ativo neste horário.';
@@ -31,6 +59,14 @@ router.get('/upcoming', async (req, res) => {
   try {
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 5, 1), 20);
     const data = await model.upcoming(req.tenantId, limit);
+    res.json({ success: true, data });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+// GET /api/calendar-events/consultants — usuários ativos do tenant p/ o select "Consultor"
+router.get('/consultants', async (req, res) => {
+  try {
+    const data = await model.listConsultants(req.tenantId);
     res.json({ success: true, data });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
