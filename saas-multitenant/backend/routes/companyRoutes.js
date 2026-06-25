@@ -2,6 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const model        = require('../models/companyModels');
 const vehicleModel = require('../models/companyVehicleModels');
+const contractModel = require('../models/contractModels');
 const { checkPermission } = require('../middlewares/checkPermission');
 
 const normalizeCnpj = (v) => (v || '').replace(/\D/g, '');
@@ -96,6 +97,72 @@ router.delete('/:id/vehicles/:vid', checkPermission('companies:delete'), async (
     const v = await vehicleModel.remove(req.params.vid, req.tenantId);
     if (!v) return res.status(404).json({ success: false, error: 'Veículo não encontrado' });
     res.json({ success: true, data: v });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+// GET /api/companies/:id/vehicle-fine-counts — contagem leve de processos por veículo (sem N+1)
+router.get('/:id/vehicle-fine-counts', checkPermission('companies:read'), async (req, res) => {
+  try {
+    const company = await model.getCompanyById(req.params.id, req.tenantId);
+    if (!company) return res.status(404).json({ success: false, error: 'Empresa não encontrada' });
+    const data = await vehicleModel.getVehicleFineCounts(req.params.id, req.tenantId);
+    res.json({ success: true, data });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+// GET /api/companies/:id/unlinked-fines — processos da empresa SEM veículo vinculado
+router.get('/:id/unlinked-fines', checkPermission('contracts:read'), async (req, res) => {
+  try {
+    const company = await model.getCompanyById(req.params.id, req.tenantId);
+    if (!company) return res.status(404).json({ success: false, error: 'Empresa não encontrada' });
+    const data = await model.getUnlinkedCompanyFines(req.params.id, req.tenantId);
+    res.json({ success: true, data });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+// GET /api/companies/:id/vehicles/:vid — detalhe de um veículo (tenant + empresa)
+router.get('/:id/vehicles/:vid', checkPermission('companies:read'), async (req, res) => {
+  try {
+    const vehicle = await vehicleModel.getById(req.params.vid, req.tenantId);
+    if (!vehicle || vehicle.company_id !== req.params.id) {
+      return res.status(404).json({ success: false, error: 'Veículo não encontrado' });
+    }
+    res.json({ success: true, data: vehicle });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+// GET /api/companies/:id/vehicles/:vid/fines?status=&limit=&offset= — processos do veículo (paginado)
+router.get('/:id/vehicles/:vid/fines', checkPermission('contracts:read'), async (req, res) => {
+  try {
+    const vehicle = await vehicleModel.getById(req.params.vid, req.tenantId);
+    if (!vehicle || vehicle.company_id !== req.params.id) {
+      return res.status(404).json({ success: false, error: 'Veículo não encontrado' });
+    }
+    const limit  = Math.min(Math.max(parseInt(req.query.limit, 10) || 25, 1), 100);
+    const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+    const status = req.query.status || '';
+    const [items, total] = await Promise.all([
+      vehicleModel.getVehicleFines(req.params.vid, req.tenantId, vehicle.plate, { status, limit, offset }),
+      vehicleModel.countVehicleFinesView(req.params.vid, req.tenantId, vehicle.plate, { status }),
+    ]);
+    res.json({ success: true, data: { items, total, limit, offset } });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+// POST /api/companies/:id/vehicles/:vid/fines/:fid/link — vincula processo legado ao veículo
+router.post('/:id/vehicles/:vid/fines/:fid/link', checkPermission('contracts:update'), async (req, res) => {
+  try {
+    const vehicle = await vehicleModel.getById(req.params.vid, req.tenantId);
+    if (!vehicle || vehicle.company_id !== req.params.id) {
+      return res.status(404).json({ success: false, error: 'Veículo não encontrado' });
+    }
+    const fine = await contractModel.getContractById(req.params.fid, req.tenantId);
+    if (!fine) return res.status(404).json({ success: false, error: 'Processo não encontrado' });
+    if (fine.company_id && fine.company_id !== req.params.id) {
+      return res.status(400).json({ success: false, error: 'Processo pertence a outra empresa' });
+    }
+    const updated = await vehicleModel.linkFineToVehicle(req.params.fid, req.params.vid, req.params.id, req.tenantId);
+    res.json({ success: true, data: updated });
   } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 

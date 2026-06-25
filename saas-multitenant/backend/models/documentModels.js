@@ -5,25 +5,25 @@ const pool = require('../config/db');
 // ============================================
 
 // CREATE - Criar novo documento
-const createDocument = async ({ 
-  tenant_id, contract_id, client_id, file_url, file_name, 
-  file_type, file_size, category, description, uploaded_by 
+const createDocument = async ({
+  tenant_id, contract_id, client_id, company_id, vehicle_id, file_url, file_name,
+  file_type, file_size, category, description, uploaded_by
 }) => {
   if (!tenant_id) {
     throw new Error('tenant_id é obrigatório para criar um documento');
   }
-  
+
   const result = await pool.query(
     `INSERT INTO documents(
-      tenant_id, contract_id, client_id, file_url, file_name,
+      tenant_id, contract_id, client_id, company_id, vehicle_id, file_url, file_name,
       file_type, file_size, category, description, uploaded_by
-    ) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+    ) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
     [
-      tenant_id, contract_id, client_id, file_url, file_name,
-      file_type, file_size, category, description, uploaded_by
+      tenant_id, contract_id || null, client_id || null, company_id || null, vehicle_id || null,
+      file_url, file_name, file_type, file_size, category, description, uploaded_by
     ]
   );
-  
+
   return result.rows[0];
 };
 
@@ -72,6 +72,28 @@ const getDocumentsByClient = async (client_id, tenant_id) => {
      WHERE client_id = $1 AND tenant_id = $2
      ORDER BY uploaded_at DESC`,
     [client_id, tenant_id]
+  );
+  return result.rows;
+};
+
+// READ - Buscar documentos por empresa (tenant-scoped)
+const getDocumentsByCompany = async (company_id, tenant_id) => {
+  const result = await pool.query(
+    `SELECT * FROM documents
+     WHERE company_id = $1 AND tenant_id = $2
+     ORDER BY uploaded_at DESC`,
+    [company_id, tenant_id]
+  );
+  return result.rows;
+};
+
+// READ - Buscar documentos por veículo (tenant-scoped)
+const getDocumentsByVehicle = async (vehicle_id, tenant_id) => {
+  const result = await pool.query(
+    `SELECT * FROM documents
+     WHERE vehicle_id = $1 AND tenant_id = $2
+     ORDER BY uploaded_at DESC`,
+    [vehicle_id, tenant_id]
   );
   return result.rows;
 };
@@ -137,6 +159,8 @@ module.exports = {
   getDocumentById,
   getDocumentsByContract,
   getDocumentsByClient,
+  getDocumentsByCompany,
+  getDocumentsByVehicle,
   getDocumentsByCategory,
   countDocuments,
   countDocumentsByCategory,

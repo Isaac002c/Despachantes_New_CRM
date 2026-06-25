@@ -100,6 +100,31 @@ const deleteCompany = async (id, tenant_id) => {
   return r.rows[0];
 };
 
+// Processos da empresa SEM veículo vinculado (vehicle_id NULL): placa ausente,
+// inválida, não cadastrada ou vínculo incompleto. Acessíveis para vínculo manual.
+const getUnlinkedCompanyFines = async (company_id, tenant_id) => {
+  const r = await pool.query(
+    `SELECT f.id,
+            f.fine_number AS numero_multa,
+            f.plate       AS vehicle_plate,
+            f.organ,
+            f.stage       AS status,
+            f.due_date,
+            f.notes,
+            f.service_type_id AS service_id,
+            f.company_id,
+            f.vehicle_id,
+            f.protocol_number, f.protocol_date, f.protocol_status, f.protocol_notes, f.protocol_file_url,
+            st.code AS service_name
+       FROM fines f
+       LEFT JOIN service_types st ON f.service_type_id = st.id
+      WHERE f.company_id = $1 AND f.tenant_id = $2 AND f.vehicle_id IS NULL
+      ORDER BY f.created_at DESC`,
+    [company_id, tenant_id]
+  );
+  return r.rows;
+};
+
 // Processos/multas vinculados à empresa (tenant-scoped)
 const getCompanyFines = async (company_id, tenant_id) => {
   const r = await pool.query(
@@ -129,4 +154,5 @@ const getCompanyFines = async (company_id, tenant_id) => {
 module.exports = {
   createCompany, getAllCompanies, getCompanyById, getCompanyByCnpj,
   updateCompany, setCompanyStatus, countCompanyFines, deleteCompany, getCompanyFines,
+  getUnlinkedCompanyFines,
 };

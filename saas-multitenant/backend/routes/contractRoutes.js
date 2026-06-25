@@ -1,7 +1,35 @@
 const express = require('express');
 const router = express.Router();
 const contractModel = require('../models/contractModels');
+const companyModel = require('../models/companyModels');
+const vehicleModel = require('../models/companyVehicleModels');
 const { checkPermission, requireAdmin } = require('../middlewares/checkPermission');
+
+const plateKey = (p) => String(p || '').replace(/[^a-z0-9]/gi, '').toUpperCase();
+
+// Valida vínculo empresa/veículo de um processo contra o tenant autenticado.
+// Só atua quando company_id/vehicle_id são informados (não afeta o fluxo de cliente).
+async function validateContractLink(body, tenantId) {
+  const { company_id, vehicle_id, vehicle_plate } = body;
+  if (!company_id && !vehicle_id) return { ok: true };
+
+  if (company_id) {
+    const company = await companyModel.getCompanyById(company_id, tenantId);
+    if (!company) return { ok: false, status: 400, error: 'Empresa inválida para este tenant' };
+  }
+  if (vehicle_id) {
+    const vehicle = await vehicleModel.getById(vehicle_id, tenantId);
+    if (!vehicle) return { ok: false, status: 400, error: 'Veículo inválido para este tenant' };
+    if (company_id && vehicle.company_id !== company_id) {
+      return { ok: false, status: 400, error: 'Veículo não pertence à empresa informada' };
+    }
+    // Coerência de placa: quando o veículo tem placa e o processo informa outra, bloqueia.
+    if (vehicle.plate && vehicle_plate && plateKey(vehicle.plate) !== plateKey(vehicle_plate)) {
+      return { ok: false, status: 400, error: 'Placa informada não corresponde ao veículo selecionado' };
+    }
+  }
+  return { ok: true };
+}
 
 // GET /api/contracts/stage-clients — clientes agrupados por macro-etapa
 router.get('/stage-clients', checkPermission('contracts:read'), async (req, res) => {
@@ -107,6 +135,8 @@ router.get('/', requireAdmin, async (req, res) => {
 
 router.post('/', checkPermission('contracts:create'), async (req, res) => {
   try {
+    const linkCheck = await validateContractLink(req.body, req.tenantId);
+    if (!linkCheck.ok) return res.status(linkCheck.status).json({ success: false, error: linkCheck.error });
     const contract = await contractModel.createContract({ ...req.body, tenant_id: req.tenantId });
     res.status(201).json({ success: true, data: contract });
   } catch (err) {
@@ -116,6 +146,8 @@ router.post('/', checkPermission('contracts:create'), async (req, res) => {
 
 router.put('/:id', checkPermission('contracts:update'), async (req, res) => {
   try {
+    const linkCheck = await validateContractLink(req.body, req.tenantId);
+    if (!linkCheck.ok) return res.status(linkCheck.status).json({ success: false, error: linkCheck.error });
     const contract = await contractModel.updateContract(req.params.id, req.body, req.tenantId);
     if (!contract) return res.status(404).json({ success: false, error: 'Not found' });
     res.json({ success: true, data: contract });

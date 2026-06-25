@@ -1,18 +1,45 @@
 const express = require('express');
 const router = express.Router();
 const documentModel = require('../models/documentModels');
+const companyModel = require('../models/companyModels');
+const vehicleModel = require('../models/companyVehicleModels');
 const { requireAdmin } = require('../middlewares/checkPermission');
 
-// GET /api/documents - Listar todos os documentos
+// Garante que a empresa/veículo informado pertence ao tenant autenticado.
+// Retorna { ok:true } ou { ok:false, status, error } para resposta controlada.
+async function assertOwnership({ company_id, vehicle_id, tenantId }) {
+  if (company_id) {
+    const company = await companyModel.getCompanyById(company_id, tenantId);
+    if (!company) return { ok: false, status: 404, error: 'Empresa não encontrada' };
+  }
+  if (vehicle_id) {
+    const vehicle = await vehicleModel.getById(vehicle_id, tenantId);
+    if (!vehicle) return { ok: false, status: 404, error: 'Veículo não encontrado' };
+    if (company_id && vehicle.company_id !== company_id) {
+      return { ok: false, status: 400, error: 'Veículo não pertence à empresa informada' };
+    }
+  }
+  return { ok: true };
+}
+
+// GET /api/documents - Listar documentos (por contrato, cliente, empresa, veículo ou categoria)
 router.get('/', async (req, res) => {
   try {
     const tenantId = req.tenantId;
-    const { category, contract_id, client_id } = req.query;
-    
+    const { category, contract_id, client_id, company_id, vehicle_id } = req.query;
+
     let documents;
-    
+
     if (contract_id) {
       documents = await documentModel.getDocumentsByContract(contract_id, tenantId);
+    } else if (vehicle_id) {
+      const own = await assertOwnership({ vehicle_id, tenantId });
+      if (!own.ok) return res.status(own.status).json({ success: false, error: own.error });
+      documents = await documentModel.getDocumentsByVehicle(vehicle_id, tenantId);
+    } else if (company_id) {
+      const own = await assertOwnership({ company_id, tenantId });
+      if (!own.ok) return res.status(own.status).json({ success: false, error: own.error });
+      documents = await documentModel.getDocumentsByCompany(company_id, tenantId);
     } else if (client_id) {
       documents = await documentModel.getDocumentsByClient(client_id, tenantId);
     } else if (category) {
@@ -20,7 +47,7 @@ router.get('/', async (req, res) => {
     } else {
       documents = await documentModel.getAllDocuments(tenantId);
     }
-    
+
     res.json({ success: true, data: documents });
   } catch (err) {
     console.error('Erro ao buscar documentos:', err);
@@ -99,25 +126,33 @@ router.get('/:id', async (req, res) => {
 // POST /api/documents - Criar novo documento
 router.post('/', async (req, res) => {
   try {
-    const { 
-      contract_id, client_id, file_url, file_name, 
-      file_type, file_size, category, description 
+    const {
+      contract_id, client_id, company_id, vehicle_id, file_url, file_name,
+      file_type, file_size, category, description
     } = req.body;
     const tenantId = req.tenantId;
     const userId = req.userId;
-    
+
     if (!file_url) {
       return res.status(400).json({ success: false, error: 'URL do arquivo é obrigatória' });
     }
-    
+
     if (!file_name) {
       return res.status(400).json({ success: false, error: 'Nome do arquivo é obrigatório' });
     }
-    
+
+    // Empresa/veículo (quando informados) precisam pertencer ao tenant.
+    if (company_id || vehicle_id) {
+      const own = await assertOwnership({ company_id, vehicle_id, tenantId });
+      if (!own.ok) return res.status(own.status).json({ success: false, error: own.error });
+    }
+
     const document = await documentModel.createDocument({
       tenant_id: tenantId,
       contract_id,
       client_id,
+      company_id,
+      vehicle_id,
       file_url,
       file_name,
       file_type,
