@@ -9,7 +9,7 @@ import { createContract, updateContract, deleteContract } from '../../../../../l
 import { getServiceTypes } from '../../../../../lib/servicesAPI';
 import {
   STATUS_OPTIONS, getStatusStyle, getStatusLabel, getOrganOptions,
-  formatDate, getPrazoStyle, toInputDate, filterVehicleServiceTypes,
+  formatDate, getPrazoStyle, filterVehicleServiceTypes,
 } from '../../../../../lib/processConstants';
 import ProtocolPanel from '../../../../components/ProtocolPanel';
 import DocumentsSection from '../../../../components/DocumentsSection';
@@ -18,6 +18,35 @@ import VehicleFormModal from '../../../../components/VehicleFormModal';
 const PAGE = 25;
 const VEHICLE_DOC_TYPES = ['CRLV', 'CRV / DUT', 'Comprovante', 'Procuração', 'Nota Fiscal', 'Outros'];
 const EMPTY_PROC = { service_id: '', numero_multa: '', organ: '', status: 'APRS DEFESA PREVIA', due_date: '', notes: '' };
+
+// Prazo copia-e-cola: o estado guarda o texto exibido (dd/mm/aaaa); converte p/ ISO só ao salvar
+// (sem new Date → timezone-safe). Mesmo comportamento do campo Prazo em clients/[id].
+const normalizeDate = (v) => {
+  if (!v) return '';
+  const s = v.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const [y, m, d] = s.split('-'); return `${d}/${m}/${y}`; }
+  const digits = s.replace(/\D/g, '').slice(0, 8);
+  if (digits.length === 8) return `${digits.slice(0,2)}/${digits.slice(2,4)}/${digits.slice(4)}`;
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0,2)}/${digits.slice(2)}`;
+  return `${digits.slice(0,2)}/${digits.slice(2,4)}/${digits.slice(4)}`;
+};
+const isoToDisplay = (v) => {
+  if (!v) return '';
+  const s = String(v).substring(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const [y, m, d] = s.split('-'); return `${d}/${m}/${y}`; }
+  return s;
+};
+const displayToIso = (v) => {
+  if (!v || !v.trim()) return null;
+  const s = v.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const mSep = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+  if (mSep) return `${mSep[3]}-${mSep[2].padStart(2,'0')}-${mSep[1].padStart(2,'0')}`;
+  const mRaw = s.match(/^(\d{2})(\d{2})(\d{4})$/);
+  if (mRaw) return `${mRaw[3]}-${mRaw[2]}-${mRaw[1]}`;
+  return null;
+};
 
 export default function VehicleDetail() {
   const router = useRouter();
@@ -107,7 +136,7 @@ export default function VehicleDetail() {
       numero_multa: f.numero_multa || '',
       organ: f.organ || '',
       status: f.status || 'APRS DEFESA PREVIA',
-      due_date: toInputDate(f.due_date),
+      due_date: isoToDisplay(f.due_date),
       notes: f.notes || '',
     });
     setModalError(null);
@@ -126,7 +155,7 @@ export default function VehicleDetail() {
       numero_multa: procForm.numero_multa,
       organ: procForm.organ || null,
       status: procForm.status,
-      due_date: procForm.due_date || null,
+      due_date: displayToIso(procForm.due_date),
       notes: procForm.notes,
     };
     try {
@@ -313,7 +342,19 @@ export default function VehicleDetail() {
               </div>
               <div className="form-row">
                 <div className="form-group"><label>Placa</label><input value={vehicle.plate || ''} readOnly disabled style={{ background: '#f8fafc', color: '#64748b' }} /></div>
-                <div className="form-group"><label>Prazo</label><input type="date" value={procForm.due_date} onChange={e => setProcForm(p => ({ ...p, due_date: e.target.value }))} /></div>
+                <div className="form-group">
+                  <label>Prazo</label>
+                  {/* Aceita colar/digitar dd/mm/aaaa, ddmmaaaa, yyyy-mm-dd; datepicker auxiliar à direita. */}
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <input type="text" value={procForm.due_date}
+                      onChange={e => setProcForm(p => ({ ...p, due_date: normalizeDate(e.target.value) }))}
+                      placeholder="dd/mm/aaaa" inputMode="numeric" style={{ flex: 1 }} />
+                    <input type="date" value={displayToIso(procForm.due_date) || ''}
+                      onChange={e => setProcForm(p => ({ ...p, due_date: e.target.value ? isoToDisplay(e.target.value) : '' }))}
+                      title="Escolher no calendário" aria-label="Escolher data no calendário"
+                      style={{ width: 42, flexShrink: 0, padding: '0 4px' }} />
+                  </div>
+                </div>
               </div>
               <div className="form-row">
                 <div className="form-group"><label>Órgão Autuador</label>
