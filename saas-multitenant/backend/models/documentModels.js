@@ -144,6 +144,16 @@ const updateDocument = async (id, { file_url, file_name, file_type, file_size, c
   return result.rows[0];
 };
 
+// UPDATE - Renomear: atualiza SOMENTE o nome de exibição (file_name).
+// Não toca file_url/storage, id, datas, vínculos ou qualquer outro campo. Tenant-scoped.
+const renameDocument = async (id, file_name, tenant_id) => {
+  const result = await pool.query(
+    'UPDATE documents SET file_name = $1 WHERE id = $2 AND tenant_id = $3 RETURNING *',
+    [file_name, id, tenant_id]
+  );
+  return result.rows[0];
+};
+
 // DELETE - Deletar documento
 const deleteDocument = async (id, tenant_id) => {
   const result = await pool.query(
@@ -165,6 +175,7 @@ module.exports = {
   countDocuments,
   countDocumentsByCategory,
   updateDocument,
+  renameDocument,
   deleteDocument
 };
 

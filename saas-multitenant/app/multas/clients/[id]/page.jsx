@@ -6,6 +6,7 @@ import { getClientById, updateClient } from '../../../lib/clientsAPI';
 import { getServicesByClient, deleteService, getServiceTypes } from '../../../lib/servicesAPI';
 import { getContractsByService, createContract, updateContract, deleteContract, patchContractProtocol } from '../../../lib/contractsAPI';
 import { getDocumentsByClient, createDocument, deleteDocument } from '../../../lib/documentsAPI';
+import RenameDocumentModal from '../../components/RenameDocumentModal';
 import { uploadFile } from '../../../lib/uploadsAPI';
 import { listByFine, createProtocol, updateProtocol, deleteProtocol, sendProtocolEmail } from '../../../lib/fineProtocolsAPI';
 import { requestDeletion } from '../../../lib/approvalsAPI';
@@ -250,6 +251,8 @@ export default function ClientDetail() {
 
   // Documentos do cliente
   const [clientDocs, setClientDocs]         = useState([]);
+  const [renamingDoc, setRenamingDoc]       = useState(null);
+  const [renameDocOk, setRenameDocOk]       = useState(false);
   const [showDocModal, setShowDocModal]     = useState(false);
   const [docForm, setDocForm]               = useState({ name: '', type: '', description: '' });
   const [docFile, setDocFile]               = useState(null);
@@ -832,6 +835,8 @@ export default function ClientDetail() {
           </button>
         </div>
 
+        {renameDocOk && <div style={{ margin: '0 0 12px', fontSize: 13, color: '#15803d', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '8px 12px' }}>Documento renomeado com sucesso.</div>}
+
         {clientDocs.length === 0 ? (
           <div className="cd-empty-services" style={{ background: '#fff', border: '1px dashed #e2e8f0' }}>
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="1.5">
@@ -861,6 +866,14 @@ export default function ClientDetail() {
                     {doc.uploaded_at && <span>{new Date(doc.uploaded_at).toLocaleDateString('pt-BR')}</span>}
                   </span>
                 </div>
+                {isAdmin && (
+                  <button onClick={() => setRenamingDoc(doc)} className="btn-icon" title="Renomear documento">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                  </button>
+                )}
                 {isAdmin ? (
                   <button onClick={() => deleteClientDoc(doc.id)} className="btn-icon danger" title="Excluir">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -880,6 +893,18 @@ export default function ClientDetail() {
           </div>
         )}
       </div>
+
+      {renamingDoc && (
+        <RenameDocumentModal
+          doc={renamingDoc}
+          onClose={() => setRenamingDoc(null)}
+          onRenamed={(updated) => {
+            setClientDocs(prev => prev.map(d => (d.id === updated.id ? { ...d, file_name: updated.file_name } : d)));
+            setRenameDocOk(true);
+            setTimeout(() => setRenameDocOk(false), 3500);
+          }}
+        />
+      )}
 
       {/* ── Modal: Editar dados do cliente ── */}
       {editingClientData && (

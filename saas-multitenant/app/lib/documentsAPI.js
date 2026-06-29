@@ -36,6 +36,13 @@ export const updateDocument = async (id, documentData) =>
     body: documentData,
   })).data;
 
+// Renomear documento — atualiza SOMENTE o nome de exibição (não reenvia o arquivo).
+export const renameDocument = async (id, displayName) =>
+  (await apiRequest(`/api/documents/${id}/rename`, {
+    method: 'PATCH',
+    body: { display_name: displayName },
+  })).data;
+
 // Deletar documento
 export const deleteDocument = async (id) =>
   (await apiRequest(`/api/documents/${id}`, {

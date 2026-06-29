@@ -13,6 +13,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getDocuments, createDocument, deleteDocument } from '../../lib/documentsAPI';
 import { uploadFile } from '../../lib/uploadsAPI';
+import RenameDocumentModal from './RenameDocumentModal';
 
 export default function DocumentsSection({ scope, title = 'Documentos', subtitle = null, docTypes = [], isAdmin = false, lockedCategory = null, excludeCategories = [] }) {
   const [docs, setDocs]       = useState([]);
@@ -23,6 +24,8 @@ export default function DocumentsSection({ scope, title = 'Documentos', subtitle
   const [saving, setSaving]   = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError]     = useState(null);
+  const [renamingDoc, setRenamingDoc] = useState(null);
+  const [renameOk, setRenameOk] = useState(false);
 
   const scopeKey = JSON.stringify(scope || {});
 
@@ -90,6 +93,7 @@ export default function DocumentsSection({ scope, title = 'Documentos', subtitle
       </div>
 
       {error && <div className="error-message" style={{ margin: '12px 18px 0', fontSize: 13 }}>{error}</div>}
+      {renameOk && <div style={{ margin: '12px 18px 0', fontSize: 13, color: '#15803d', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '8px 12px' }}>Documento renomeado com sucesso.</div>}
 
       {loading ? (
         <div style={{ padding: 20, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>Carregando...</div>
@@ -114,6 +118,14 @@ export default function DocumentsSection({ scope, title = 'Documentos', subtitle
                   {doc.uploaded_at && <span>{new Date(doc.uploaded_at).toLocaleDateString('pt-BR')}</span>}
                 </span>
               </div>
+              {isAdmin && (
+                <button onClick={() => setRenamingDoc(doc)} className="btn-icon" title="Renomear documento">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                  </svg>
+                </button>
+              )}
               {isAdmin && (
                 <button onClick={() => remove(doc.id)} className="btn-icon danger" title="Excluir">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -164,6 +176,18 @@ export default function DocumentsSection({ scope, title = 'Documentos', subtitle
             </form>
           </div>
         </div>
+      )}
+
+      {renamingDoc && (
+        <RenameDocumentModal
+          doc={renamingDoc}
+          onClose={() => setRenamingDoc(null)}
+          onRenamed={(updated) => {
+            setDocs(prev => prev.map(d => (d.id === updated.id ? { ...d, file_name: updated.file_name } : d)));
+            setRenameOk(true);
+            setTimeout(() => setRenameOk(false), 3500);
+          }}
+        />
       )}
     </div>
   );

@@ -3,7 +3,17 @@ const router = express.Router();
 const documentModel = require('../models/documentModels');
 const companyModel = require('../models/companyModels');
 const vehicleModel = require('../models/companyVehicleModels');
-const { requireAdmin } = require('../middlewares/checkPermission');
+const { requireAdmin, checkPermission } = require('../middlewares/checkPermission');
+const activityLog = require('../services/activityLogService');
+
+// Renomear documento — utilitários de validação (nome de exibição apenas).
+// Caracteres proibidos em nome de arquivo: \ / : * ? " < > |
+const FORBIDDEN_NAME_CHARS = /[\\/:*?"<>|]/;
+// Extensão = último ".algo" de 1 a 8 alfanuméricos (ex.: ".pdf", ".jpeg").
+const getExtension = (name) => {
+  const m = /\.([A-Za-z0-9]{1,8})$/.exec(name || '');
+  return m ? m[0] : '';
+};
 
 // Garante que a empresa/veículo informado pertence ao tenant autenticado.
 // Retorna { ok:true } ou { ok:false, status, error } para resposta controlada.
@@ -195,6 +205,73 @@ router.put('/:id', async (req, res) => {
   } catch (err) {
     console.error('Erro ao atualizar documento:', err);
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// PATCH /api/documents/:id/rename - Renomear SOMENTE o nome de exibição (file_name).
+// Não altera arquivo físico, file_url, id, datas, vínculos, categoria ou permissões.
+// Requer permissão documents:update (admin/manager); bloqueia consultor/somente-leitura.
+router.patch('/:id/rename', checkPermission('documents:update'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const tenantId = req.tenantId;
+    const userId = req.userId;
+    const { display_name } = req.body;
+
+    // Documento precisa existir e pertencer ao tenant do usuário logado.
+    const existing = await documentModel.getDocumentById(id, tenantId);
+    if (!existing) {
+      return res.status(404).json({ success: false, error: 'Documento não encontrado' });
+    }
+
+    // --- Validação (backend é a fonte de verdade; não confiar só no front) ---
+    if (typeof display_name !== 'string') {
+      return res.status(400).json({ success: false, error: 'Nome inválido' });
+    }
+    let base = display_name.trim();
+
+    // Extensão atual (imutável): preferir a do file_name; se faltar, a do arquivo armazenado.
+    const ext = getExtension(existing.file_name) || getExtension(existing.file_url);
+    // Se o usuário digitou a MESMA extensão no fim, remove para não duplicar.
+    if (ext && base.toLowerCase().endsWith(ext.toLowerCase())) {
+      base = base.slice(0, base.length - ext.length).trim();
+    }
+
+    if (!base) {
+      return res.status(400).json({ success: false, error: 'O nome não pode ficar vazio.' });
+    }
+    if (base.length > 120) {
+      return res.status(400).json({ success: false, error: 'O nome deve ter no máximo 120 caracteres.' });
+    }
+    if (FORBIDDEN_NAME_CHARS.test(base)) {
+      return res.status(400).json({ success: false, error: 'O nome não pode conter: \\ / : * ? " < > |' });
+    }
+    // Precisa ter ao menos uma letra ou número (não só pontos/espaços/símbolos). Acentos preservados.
+    if (!/[\p{L}\p{N}]/u.test(base)) {
+      return res.status(400).json({ success: false, error: 'O nome precisa ter ao menos uma letra ou número.' });
+    }
+
+    const newName = base + ext;       // extensão original reanexada (nunca trocada)
+    const oldName = existing.file_name || '';
+
+    // Sem mudança real → devolve sem gravar log duplicado.
+    if (newName === oldName) {
+      return res.json({ success: true, data: existing });
+    }
+
+    const updated = await documentModel.renameDocument(id, newName, tenantId);
+
+    // Auditoria (reutiliza o serviço existente; não bloqueia a operação se falhar).
+    activityLog.logUpdate(
+      tenantId, userId, 'document', id,
+      `Documento renomeado de "${oldName}" para "${newName}"`,
+      { file_name: oldName }, { file_name: newName }
+    );
+
+    return res.json({ success: true, data: updated });
+  } catch (err) {
+    console.error('Erro ao renomear documento:', err);
+    return res.status(500).json({ success: false, error: err.message });
   }
 });
 
