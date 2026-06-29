@@ -4,7 +4,6 @@ const documentModel = require('../models/documentModels');
 const companyModel = require('../models/companyModels');
 const vehicleModel = require('../models/companyVehicleModels');
 const { requireAdmin, checkPermission } = require('../middlewares/checkPermission');
-const activityLog = require('../services/activityLogService');
 
 // Renomear documento — utilitários de validação (nome de exibição apenas).
 // Caracteres proibidos em nome de arquivo: \ / : * ? " < > |
@@ -219,7 +218,8 @@ router.patch('/:id/rename', checkPermission('documents:update'), async (req, res
     const { display_name } = req.body;
 
     // Documento precisa existir e pertencer ao tenant do usuário logado.
-    const existing = await documentModel.getDocumentById(id, tenantId);
+    // (raw: sem JOIN com contracts, que tem coluna inexistente nesta base)
+    const existing = await documentModel.getDocumentByIdRaw(id, tenantId);
     if (!existing) {
       return res.status(404).json({ success: false, error: 'Documento não encontrado' });
     }
@@ -261,12 +261,14 @@ router.patch('/:id/rename', checkPermission('documents:update'), async (req, res
 
     const updated = await documentModel.renameDocument(id, newName, tenantId);
 
-    // Auditoria (reutiliza o serviço existente; não bloqueia a operação se falhar).
-    activityLog.logUpdate(
-      tenantId, userId, 'document', id,
-      `Documento renomeado de "${oldName}" para "${newName}"`,
-      { file_name: oldName }, { file_name: newName }
-    );
+    // Auditoria na tabela canônica activity_logs (não-bloqueante: nunca derruba o rename).
+    try {
+      await documentModel.logDocumentRename({
+        tenant_id: tenantId, user_id: userId, document_id: id, new_name: newName, old_name: oldName,
+      });
+    } catch (logErr) {
+      console.error('Auditoria de rename falhou (não bloqueante):', logErr.message);
+    }
 
     return res.json({ success: true, data: updated });
   } catch (err) {

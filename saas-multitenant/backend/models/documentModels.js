@@ -144,6 +144,17 @@ const updateDocument = async (id, { file_url, file_name, file_type, file_size, c
   return result.rows[0];
 };
 
+// READ - Buscar documento por ID SEM JOINs (raw, tenant-scoped).
+// getDocumentById faz JOIN com contracts(c.contract_number), coluna inexistente
+// nesta base -> erro 500. Fluxos que só precisam do registro (ex.: rename) usam esta.
+const getDocumentByIdRaw = async (id, tenant_id) => {
+  const result = await pool.query(
+    'SELECT * FROM documents WHERE id = $1 AND tenant_id = $2',
+    [id, tenant_id]
+  );
+  return result.rows[0];
+};
+
 // UPDATE - Renomear: atualiza SOMENTE o nome de exibição (file_name).
 // Não toca file_url/storage, id, datas, vínculos ou qualquer outro campo. Tenant-scoped.
 const renameDocument = async (id, file_name, tenant_id) => {
@@ -152,6 +163,21 @@ const renameDocument = async (id, file_name, tenant_id) => {
     [file_name, id, tenant_id]
   );
   return result.rows[0];
+};
+
+// AUDIT - Registra a renomeação na tabela canônica activity_logs com o schema REAL
+// (entity / entity_name / details jsonb). O writer antigo saasModels.createActivityLog
+// está quebrado (colunas entity_type/description/metadata não existem), por isso
+// inserimos direto. Sempre chamado de forma NÃO-bloqueante (não derruba o rename).
+const logDocumentRename = async ({ tenant_id, user_id, document_id, new_name, old_name }) => {
+  await pool.query(
+    `INSERT INTO activity_logs (tenant_id, user_id, entity, entity_id, entity_name, action, details)
+     VALUES ($1, $2, 'document', $3, $4, 'rename', $5::jsonb)`,
+    [
+      tenant_id, user_id || null, document_id, new_name,
+      JSON.stringify({ from: old_name, to: new_name, message: `Documento renomeado de "${old_name}" para "${new_name}"` }),
+    ]
+  );
 };
 
 // DELETE - Deletar documento
@@ -175,7 +201,9 @@ module.exports = {
   countDocuments,
   countDocumentsByCategory,
   updateDocument,
+  getDocumentByIdRaw,
   renameDocument,
+  logDocumentRename,
   deleteDocument
 };
 
