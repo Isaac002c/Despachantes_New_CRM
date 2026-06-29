@@ -30,7 +30,7 @@ const createDocument = async ({
 // READ - Listar todos os documentos do tenant
 const getAllDocuments = async (tenant_id) => {
   const result = await pool.query(
-    `SELECT d.*, c.contract_number, cl.name as client_name
+    `SELECT d.*, c.numero_multa AS contract_number, cl.name as client_name
      FROM documents d
      LEFT JOIN contracts c ON d.contract_id = c.id
      LEFT JOIN clients cl ON d.client_id = cl.id
@@ -44,7 +44,7 @@ const getAllDocuments = async (tenant_id) => {
 // READ - Buscar documento por ID
 const getDocumentById = async (id, tenant_id) => {
   const result = await pool.query(
-    `SELECT d.*, c.contract_number, cl.name as client_name
+    `SELECT d.*, c.numero_multa AS contract_number, cl.name as client_name
      FROM documents d
      LEFT JOIN contracts c ON d.contract_id = c.id
      LEFT JOIN clients cl ON d.client_id = cl.id
@@ -101,7 +101,7 @@ const getDocumentsByVehicle = async (vehicle_id, tenant_id) => {
 // READ - Buscar documentos por categoria
 const getDocumentsByCategory = async (tenant_id, category) => {
   const result = await pool.query(
-    `SELECT d.*, c.contract_number, cl.name as client_name
+    `SELECT d.*, c.numero_multa AS contract_number, cl.name as client_name
      FROM documents d
      LEFT JOIN contracts c ON d.contract_id = c.id
      LEFT JOIN clients cl ON d.client_id = cl.id
@@ -144,9 +144,9 @@ const updateDocument = async (id, { file_url, file_name, file_type, file_size, c
   return result.rows[0];
 };
 
-// READ - Buscar documento por ID SEM JOINs (raw, tenant-scoped).
-// getDocumentById faz JOIN com contracts(c.contract_number), coluna inexistente
-// nesta base -> erro 500. Fluxos que só precisam do registro (ex.: rename) usam esta.
+// READ - Buscar documento por ID SEM JOINs (raw, tenant-scoped, leve).
+// Para fluxos que só precisam do registro do documento (ex.: rename), evitando
+// os JOINs com contracts/clients de getDocumentById.
 const getDocumentByIdRaw = async (id, tenant_id) => {
   const result = await pool.query(
     'SELECT * FROM documents WHERE id = $1 AND tenant_id = $2',
