@@ -30,9 +30,8 @@ const createDocument = async ({
 // READ - Listar todos os documentos do tenant
 const getAllDocuments = async (tenant_id) => {
   const result = await pool.query(
-    `SELECT d.*, c.contract_number, cl.name as client_name
+    `SELECT d.*, cl.name as client_name
      FROM documents d
-     LEFT JOIN contracts c ON d.contract_id = c.id
      LEFT JOIN clients cl ON d.client_id = cl.id
      WHERE d.tenant_id = $1
      ORDER BY d.uploaded_at DESC`,
@@ -44,9 +43,8 @@ const getAllDocuments = async (tenant_id) => {
 // READ - Buscar documento por ID
 const getDocumentById = async (id, tenant_id) => {
   const result = await pool.query(
-    `SELECT d.*, c.contract_number, cl.name as client_name
+    `SELECT d.*, cl.name as client_name
      FROM documents d
-     LEFT JOIN contracts c ON d.contract_id = c.id
      LEFT JOIN clients cl ON d.client_id = cl.id
      WHERE d.id = $1 AND d.tenant_id = $2`,
     [id, tenant_id]
@@ -101,9 +99,8 @@ const getDocumentsByVehicle = async (vehicle_id, tenant_id) => {
 // READ - Buscar documentos por categoria
 const getDocumentsByCategory = async (tenant_id, category) => {
   const result = await pool.query(
-    `SELECT d.*, c.contract_number, cl.name as client_name
+    `SELECT d.*, cl.name as client_name
      FROM documents d
-     LEFT JOIN contracts c ON d.contract_id = c.id
      LEFT JOIN clients cl ON d.client_id = cl.id
      WHERE d.tenant_id = $1 AND d.category = $2
      ORDER BY d.uploaded_at DESC`,
@@ -145,8 +142,8 @@ const updateDocument = async (id, { file_url, file_name, file_type, file_size, c
 };
 
 // READ - Buscar documento por ID SEM JOINs (raw, tenant-scoped).
-// getDocumentById faz JOIN com contracts(c.contract_number), coluna inexistente
-// nesta base -> erro 500. Fluxos que só precisam do registro (ex.: rename) usam esta.
+// Variante enxuta usada por fluxos que só precisam do registro do documento (ex.: rename),
+// sem o JOIN com clients de getDocumentById.
 const getDocumentByIdRaw = async (id, tenant_id) => {
   const result = await pool.query(
     'SELECT * FROM documents WHERE id = $1 AND tenant_id = $2',

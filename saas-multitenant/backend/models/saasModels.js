@@ -140,16 +140,24 @@ const checkPlanLimits = async (tenant_id, resource, currentCount) => {
 // ACTIVITY LOGS MODEL - Logs de Atividades
 // ============================================
 
-// CREATE - Criar log de atividade
-const createActivityLog = async ({ 
-  tenant_id, user_id, action, entity_type, entity_id, description, metadata = {}, ip_address 
+// CREATE - Criar log de atividade.
+// A tabela real activity_logs tem colunas (entity, entity_name, details jsonb) — e NÃO
+// (entity_type, description, metadata, ip_address). Mantemos a assinatura antiga para não
+// quebrar os call sites e mapeamos: entity_type -> entity; description e ip_address vão
+// para o details (jsonb), junto com o restante do metadata.
+const createActivityLog = async ({
+  tenant_id, user_id, action, entity_type, entity_id, entity_name = null, description = null, metadata = {}, ip_address = null
 }) => {
+  const details = { ...(metadata || {}) };
+  if (description) details.message = description;
+  if (ip_address) details.ip_address = ip_address;
+
   const result = await pool.query(
-    `INSERT INTO activity_logs 
-     (tenant_id, user_id, action, entity_type, entity_id, description, metadata, ip_address)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `INSERT INTO activity_logs
+     (tenant_id, user_id, action, entity, entity_id, entity_name, details)
+     VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
      RETURNING *`,
-    [tenant_id, user_id, action, entity_type, entity_id, description, JSON.stringify(metadata), ip_address]
+    [tenant_id, user_id, action, entity_type, entity_id, entity_name, JSON.stringify(details)]
   );
   return result.rows[0];
 };
@@ -160,7 +168,8 @@ const getActivityLogs = async (tenant_id, filters = {}) => {
   const offset = (page - 1) * limit;
   
   let query = `
-    SELECT al.*, u.name as user_name, u.email as user_email
+    SELECT al.*, al.entity AS entity_type, al.details->>'message' AS description,
+           u.name as user_name, u.email as user_email
     FROM activity_logs al
     LEFT JOIN users u ON al.user_id = u.id
     WHERE al.tenant_id = $1
@@ -170,8 +179,8 @@ const getActivityLogs = async (tenant_id, filters = {}) => {
   let paramIndex = 2;
   
   if (entity_type) {
-    query += ` AND al.entity_type = $${paramIndex}`;
-    countQuery += ` AND entity_type = $${paramIndex}`;
+    query += ` AND al.entity = $${paramIndex}`;
+    countQuery += ` AND entity = $${paramIndex}`;
     params.push(entity_type);
     paramIndex++;
   }
@@ -211,10 +220,11 @@ const getActivityLogs = async (tenant_id, filters = {}) => {
 // READ - Buscar logs por entidade
 const getActivityLogsByEntity = async (tenant_id, entity_type, entity_id) => {
   const result = await pool.query(
-    `SELECT al.*, u.name as user_name
+    `SELECT al.*, al.entity AS entity_type, al.details->>'message' AS description,
+            u.name as user_name
      FROM activity_logs al
      LEFT JOIN users u ON al.user_id = u.id
-     WHERE al.tenant_id = $1 AND al.entity_type = $2 AND al.entity_id = $3
+     WHERE al.tenant_id = $1 AND al.entity = $2 AND al.entity_id = $3
      ORDER BY al.created_at DESC`,
     [tenant_id, entity_type, entity_id]
   );
