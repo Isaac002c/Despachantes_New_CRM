@@ -3,7 +3,7 @@ const router = express.Router();
 const documentModel = require('../models/documentModels');
 const companyModel = require('../models/companyModels');
 const vehicleModel = require('../models/companyVehicleModels');
-const { requireAdmin, checkPermission } = require('../middlewares/checkPermission');
+const { requireAdmin } = require('../middlewares/checkPermission');
 
 // Renomear documento — utilitários de validação (nome de exibição apenas).
 // Caracteres proibidos em nome de arquivo: \ / : * ? " < > |
@@ -209,8 +209,11 @@ router.put('/:id', async (req, res) => {
 
 // PATCH /api/documents/:id/rename - Renomear SOMENTE o nome de exibição (file_name).
 // Não altera arquivo físico, file_url, id, datas, vínculos, categoria ou permissões.
-// Requer permissão documents:update (admin/manager); bloqueia consultor/somente-leitura.
-router.patch('/:id/rename', checkPermission('documents:update'), async (req, res) => {
+// Acessível a qualquer usuário autenticado do tenant (inclui consultor/seller) — mesmo
+// nível de POST (upload) e PUT (update completo), que já não exigem permissão. O rename é
+// validado e auditado, então é a via MAIS segura de editar o nome do que o PUT cru.
+// O router já está atrás de tenantContext (app.js), então não há acesso anônimo.
+router.patch('/:id/rename', async (req, res) => {
   try {
     const { id } = req.params;
     const tenantId = req.tenantId;
