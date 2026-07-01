@@ -12,6 +12,11 @@ services:
     env_file: ./backend/.env
     environment:
       NODE_ENV: production
+    volumes:
+      # Uploads persistentes (documentos). Volume externo JÁ EXISTENTE — NÃO remover:
+      # sem este mount, /app/uploads fica vazio e os documentos param de abrir
+      # ("Rota não encontrada" no express.static -> catch-all 404).
+      - chronostek-backend-uploads:/app/uploads
     expose:
       - "5000"
     networks:
@@ -73,6 +78,10 @@ services:
       -d api-despachante.chronostek.com.br
 
 volumes:
+  # Volume externo já existente (criado no deploy original via docker run).
+  # external: true garante que o compose USE este volume com os dados, sem criar um novo vazio.
+  chronostek-backend-uploads:
+    external: true
   certbot-certs:
     name: chronostek-certbot-certs
   certbot-webroot:
