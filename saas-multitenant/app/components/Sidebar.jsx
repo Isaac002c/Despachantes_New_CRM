@@ -192,6 +192,34 @@ function TenantLogo({ collapsed, tenant }) {
   const brandColor = tenant?.brand_color || defaults.brand_color || '#751518';
   const initial = name.charAt(0).toUpperCase();
 
+  // CR Recursos: a arte da logo já traz "CR RECURSOS" + "ASSESSORIA DE TRÂNSITO"
+  // embutidos. Exibimos a arte grande num card claro (para não sumir no sidebar
+  // escuro) e não duplicamos o texto ao lado. Afeta somente este tenant.
+  const isCrRecursos = slug === 'cr-recursos';
+  if (isCrRecursos && logoUrl) {
+    return (
+      <div className={`sidebar-logo sidebar-logo--cr${collapsed ? ' is-collapsed' : ''}`}>
+        {collapsed ? (
+          <div className="cr-recursos-logo-badge">CR</div>
+        ) : (
+          <div className="cr-recursos-logo-card">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={logoUrl}
+              alt={name}
+              className="cr-recursos-logo-img"
+              onError={e => {
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.nextElementSibling.style.display = 'flex';
+              }}
+            />
+            <div className="cr-recursos-logo-fallback">{name}</div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="sidebar-logo">
       <div className="cr-logo-icon" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

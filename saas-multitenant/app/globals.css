@@ -4138,6 +4138,67 @@ html, body {
   margin-top: 1px;
 }
 
+/* ============================================
+   CR Recursos — logo em destaque no sidebar
+   A arte já contém "CR RECURSOS" + "ASSESSORIA DE TRÂNSITO",
+   então mostramos a logo grande num card claro e não duplicamos texto.
+   Escopo restrito a .tenant-cr-recursos: não afeta outros tenants.
+   ============================================ */
+.sidebar.tenant-cr-recursos .sidebar-logo--cr {
+  padding: 18px 14px 16px;
+  justify-content: center;
+}
+
+.sidebar.tenant-cr-recursos .cr-recursos-logo-card {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  padding: 11px 16px;
+  border-radius: 12px;
+  background: linear-gradient(150deg, #f4f0e8 0%, #dcd5c6 100%);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.sidebar.tenant-cr-recursos .cr-recursos-logo-img {
+  display: block;
+  height: 90px;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.sidebar.tenant-cr-recursos .cr-recursos-logo-fallback {
+  display: none;
+  align-items: center;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--cr-wine);
+  letter-spacing: 0.3px;
+}
+
+/* Estado colapsado: monograma discreto no lugar da arte cheia */
+.sidebar.tenant-cr-recursos .sidebar-logo--cr.is-collapsed {
+  padding: 14px 8px;
+}
+
+.sidebar.tenant-cr-recursos .cr-recursos-logo-badge {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto;
+  border-radius: 10px;
+  background: var(--cr-wine);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  box-shadow: 0 2px 8px rgba(117, 21, 24, 0.4);
+}
+
 /* Module switcher */
 .sidebar-modules {
   display: flex;
