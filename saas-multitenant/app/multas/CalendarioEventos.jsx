@@ -1,26 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getEvents, getEventsRange, createEvent, updateEvent, setEventStatus, deleteEvent, getConsultants } from '../lib/calendarAPI';
-import { getClients } from '../lib/clientsAPI';
-import { getServiceTypes } from '../lib/servicesAPI';
-import { maskCpf, onlyDigits, validateCPF, validateCNH } from '../lib/processConstants';
-
-// Tipos selecionáveis (novos). Legados ficam só para exibição de eventos antigos.
-const TYPES = [
-  { value: 'presencial',   label: 'Presencial',   color: '#751518' },
-  { value: 'videochamada', label: 'Videochamada', color: '#6366f1' },
-  { value: 'audiencia',    label: 'Audiência',    color: '#0891b2' },
-  { value: 'ligacao',      label: 'Ligação',      color: '#f59e0b' },
-];
-const LEGACY_TYPES = [
-  { value: 'reuniao',  label: 'Reunião',  color: '#6366f1' },
-  { value: 'prazo',    label: 'Prazo',    color: '#f59e0b' },
-  { value: 'outro',    label: 'Outro',    color: '#64748b' },
-  { value: 'bloqueio', label: 'Bloqueio', color: '#dc2626' },
-];
-const ALL_TYPES = [...TYPES, ...LEGACY_TYPES];
-const typeInfo = (t) => ALL_TYPES.find(x => x.value === t) || { value: t, label: t || 'Outro', color: '#64748b' };
+import { getEvents, getEventsRange, createEvent, updateEvent, setEventStatus, deleteEvent } from '../lib/calendarAPI';
+import { maskCpf } from '../lib/processConstants';
+import EventFormModal, { typeInfo, fmtTime, isoToDisplay } from './components/EventFormModal';
 
 // Turnos padrão (editáveis) — não há config de expediente no sistema.
 const SHIFT_DEFAULTS = { manha: { start: '08:00', end: '12:00' }, tarde: { start: '12:00', end: '18:00' } };
@@ -34,53 +17,9 @@ const pad = (n) => String(n).padStart(2, '0');
 const localISO = (dt) => `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
 const parseDateOnly = (v) => { if (!v) return null; const [y, m, d] = String(v).substring(0, 10).split('-'); return (y && m && d) ? new Date(+y, +m - 1, +d, 12, 0, 0) : null; };
 const fmtDateLong = (v) => { const dt = parseDateOnly(v); return dt ? dt.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }) : '—'; };
-const fmtTime = (t) => (t ? String(t).substring(0, 5) : '');
+const fmtMoney = (v) => (v == null || v === '' ? '' : Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
 
-// Datas em dd/mm/aaaa (digitação) <-> ISO (seletor/banco) — mesmo padrão do módulo de multas.
-const normalizeDate = (v) => {
-  if (!v) return '';
-  const s = v.trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const [y, m, d] = s.split('-'); return `${d}/${m}/${y}`; }
-  const digits = s.replace(/\D/g, '').slice(0, 8);
-  if (digits.length === 8) return `${digits.slice(0,2)}/${digits.slice(2,4)}/${digits.slice(4)}`;
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return `${digits.slice(0,2)}/${digits.slice(2)}`;
-  return `${digits.slice(0,2)}/${digits.slice(2,4)}/${digits.slice(4)}`;
-};
-const isoToDisplay = (v) => {
-  if (!v) return '';
-  const s = String(v).substring(0, 10);
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const [y, m, d] = s.split('-'); return `${d}/${m}/${y}`; }
-  return s;
-};
-const displayToIso = (v) => {
-  if (!v || !v.trim()) return null;
-  const s = v.trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  const mSep = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
-  if (mSep) return `${mSep[3]}-${mSep[2].padStart(2,'0')}-${mSep[1].padStart(2,'0')}`;
-  const mRaw = s.match(/^(\d{2})(\d{2})(\d{4})$/);
-  if (mRaw) return `${mRaw[3]}-${mRaw[2]}-${mRaw[1]}`;
-  return null;
-};
-
-const EMPTY = {
-  title: '', description: '', event_date: '', start_time: '', end_time: '', type: 'presencial',
-  client_id: '', status: 'agendado',
-  service_type_id: '', responsible_user_id: '',
-  attendee_cpf: '', attendee_cnh: '', attendee_first_cnh: '', attendee_birth_date: '',
-};
 const SCOPES = [{ key: 'upcoming', label: 'Próximos' }, { key: 'past', label: 'Passados' }, { key: 'all', label: 'Todos' }];
-
-// Campo de data br: texto dd/mm/aaaa + seletor nativo. `value` é mantido em dd/mm/aaaa.
-function DateBRInput({ value, onChange }) {
-  return (
-    <div style={{ display: 'flex', gap: 4 }}>
-      <input type="text" value={value || ''} onChange={(e) => onChange(normalizeDate(e.target.value))} placeholder="dd/mm/aaaa" inputMode="numeric" style={{ flex: 1 }} />
-      <input type="date" value={displayToIso(value) || ''} onChange={(e) => onChange(e.target.value ? isoToDisplay(e.target.value) : '')} title="Calendário" aria-label="Escolher data" style={{ width: 40, flexShrink: 0, padding: 0 }} />
-    </div>
-  );
-}
 
 export default function CalendarioEventos() {
   const todayDate = new Date();
@@ -91,17 +30,10 @@ export default function CalendarioEventos() {
   const [monthEvents, setMonthEvents] = useState([]);
   const [listEvents, setListEvents]   = useState([]);
   const [scope, setScope]     = useState('upcoming');
-  const [clients, setClients] = useState([]);
-  const [serviceTypes, setServiceTypes] = useState([]);
-  const [consultants, setConsultants]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
   const [dayDrawer, setDayDrawer] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [form, setForm]       = useState(EMPTY);
-  const [saving, setSaving]   = useState(false);
-  const [modalError, setModalError] = useState(null);
+  const [formModal, setFormModal] = useState(null);   // { event } (edição) | { initialData } (novo)
   const [viewEvent, setViewEvent] = useState(null);   // visualização (somente leitura) do agendamento
 
   // Modal de bloqueio (dia inteiro / manhã / tarde / personalizado)
@@ -109,13 +41,6 @@ export default function CalendarioEventos() {
   const [blockSaving, setBlockSaving] = useState(false);
   const [blockError, setBlockError] = useState(null);
 
-  const currentUser = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || '{}') : {};
-
-  useEffect(() => {
-    getClients().then(d => setClients(d || [])).catch(() => {});
-    getServiceTypes().then(d => setServiceTypes(d || [])).catch(() => {});
-    getConsultants().then(d => setConsultants(d || [])).catch(() => {});
-  }, []);
   useEffect(() => { load(); }, [view, scope, cursor.y, cursor.m]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const monthRange = () => {
@@ -138,53 +63,13 @@ export default function CalendarioEventos() {
     finally { setLoading(false); }
   };
 
-  // ── CRUD evento ──
-  const openNew = (dateStr) => {
-    setEditing(null);
-    setForm({ ...EMPTY, event_date: dateStr || localISO(new Date()), responsible_user_id: currentUser?.id || '' });
-    setModalError(null); setShowModal(true);
-  };
+  // ── CRUD evento (form compartilhado em components/EventFormModal) ──
+  const openNew = (dateStr) => setFormModal({ event: null, initialData: { event_date: dateStr || localISO(new Date()) } });
   const openEdit = (ev) => {
     if (ev.type === 'bloqueio') { openBlockEdit(ev); return; }   // bloqueios usam o modal próprio
-    setEditing(ev);
-    setForm({
-      title: ev.title || '', description: ev.description || '', event_date: String(ev.event_date).substring(0, 10),
-      start_time: fmtTime(ev.start_time), end_time: fmtTime(ev.end_time), type: ev.type || 'outro',
-      client_id: ev.client_id || '', status: ev.status || 'agendado',
-      service_type_id: ev.service_type_id ? String(ev.service_type_id) : '',
-      responsible_user_id: ev.responsible_user_id || '',
-      attendee_cpf: maskCpf(ev.attendee_cpf || ''),
-      attendee_cnh: ev.attendee_cnh || '',
-      attendee_first_cnh: isoToDisplay(ev.attendee_first_cnh),
-      attendee_birth_date: isoToDisplay(ev.attendee_birth_date),
-    });
-    setModalError(null); setShowModal(true);
+    setFormModal({ event: ev });
   };
   const openView = (ev) => { setDayDrawer(null); setViewEvent(ev); };   // abre a visualização read-only (fecha o drawer do dia)
-  const save = async (e) => {
-    e.preventDefault(); setModalError(null);
-    if (!form.title.trim()) { setModalError('Nome da pessoa agendada é obrigatório.'); return; }
-    if (!form.event_date)   { setModalError('Data é obrigatória.'); return; }
-    if (form.attendee_cpf && !validateCPF(form.attendee_cpf)) { setModalError('CPF inválido.'); return; }
-    if (form.attendee_cnh && !validateCNH(form.attendee_cnh)) { setModalError('CNH deve ter 11 dígitos.'); return; }
-    try {
-      setSaving(true);
-      const payload = {
-        ...form,
-        client_id: form.client_id || null,
-        service_type_id: form.service_type_id || null,
-        responsible_user_id: form.responsible_user_id || null,
-        attendee_cpf: onlyDigits(form.attendee_cpf) || null,
-        attendee_cnh: form.attendee_cnh ? onlyDigits(form.attendee_cnh) : null,
-        attendee_first_cnh: displayToIso(form.attendee_first_cnh),
-        attendee_birth_date: displayToIso(form.attendee_birth_date),
-      };
-      if (editing) await updateEvent(editing.id, payload);
-      else         await createEvent(payload);
-      setShowModal(false); load();
-    } catch (err) { setModalError(err.message); }   // 409 = conflito / agenda fechada
-    finally { setSaving(false); }
-  };
   const cancelEvent = async (ev) => { if (!confirm('Cancelar este evento?')) return; try { await setEventStatus(ev.id, 'cancelado'); load(); } catch (err) { setError(err.message); } };
   const removeEvent = async (ev) => { if (!confirm(ev.type === 'bloqueio' ? 'Remover este bloqueio?' : 'Excluir este evento?')) return; try { await deleteEvent(ev.id); load(); } catch (err) { setError(err.message); } };
 
@@ -223,8 +108,6 @@ export default function CalendarioEventos() {
     } catch (err) { setBlockError(err.message); }   // 409 = conflito com evento / bloqueio sobreposto
     finally { setBlockSaving(false); }
   };
-
-  const set = (field) => (e) => setForm(p => ({ ...p, [field]: e.target.value }));
 
   const eventsOn = (dateStr) => monthEvents.filter(e => String(e.event_date).substring(0, 10) === dateStr);
   const blocksOf = (evs) => evs.filter(e => e.type === 'bloqueio' && e.status !== 'cancelado');
@@ -458,112 +341,66 @@ export default function CalendarioEventos() {
                       : ev.start_time ? fmtTime(ev.start_time) : 'Dia inteiro';
         return (
           <div className="modal-overlay" onClick={() => setViewEvent(null)}>
-            <div className="modal-content" style={{ maxWidth: 520 }} onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header">
-                <div>
-                  <h2 style={{ fontSize: 18, fontWeight: 700, color: '#0f172a' }}>{ev.title}</h2>
-                  <div style={{ display: 'flex', gap: 7, marginTop: 6, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: ti.color, background: `${ti.color}18`, padding: '2px 10px', borderRadius: 999, textTransform: 'uppercase', letterSpacing: '0.3px' }}>{ti.label}</span>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: cancelled ? '#94a3b8' : ti.color, background: cancelled ? '#f1f5f9' : `${ti.color}18`, padding: '2px 10px', borderRadius: 999 }}>{STATUS_LABEL[ev.status] || 'Agendado'}</span>
+            <div className="modal-content" style={{ maxWidth: 620 }} onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header" style={{ alignItems: 'flex-start' }}>
+                <div style={{ minWidth: 0, paddingRight: 8 }}>
+                  <h2 style={{ fontSize: 19, fontWeight: 700, color: '#0f172a', wordBreak: 'break-word' }}>{ev.title}</h2>
+                  <div style={{ display: 'flex', gap: 7, marginTop: 7, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: ti.color, background: `${ti.color}18`, padding: '3px 10px', borderRadius: 999, textTransform: 'uppercase', letterSpacing: '0.3px' }}>{ti.label}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: cancelled ? '#94a3b8' : ti.color, background: cancelled ? '#f1f5f9' : `${ti.color}18`, padding: '3px 10px', borderRadius: 999 }}>{STATUS_LABEL[ev.status] || 'Agendado'}</span>
                   </div>
                 </div>
                 <button type="button" onClick={() => setViewEvent(null)} className="btn-close">✕</button>
               </div>
 
-              <div style={{ marginBottom: 16 }}>
-                <DetailRow label="Data" value={fmtDateLong(ev.event_date)} />
-                <DetailRow label="Horário" value={horario} />
-                <DetailRow label="Serviço" value={ev.service_name} />
-                <DetailRow label="Consultor" value={ev.responsible_name} />
-                <DetailRow label="Cliente" value={ev.client_name} />
-                <DetailRow label="CPF" value={ev.attendee_cpf ? maskCpf(ev.attendee_cpf) : ''} />
-                <DetailRow label="CNH" value={ev.attendee_cnh} />
-                <DetailRow label="Primeira habilitação" value={isoToDisplay(ev.attendee_first_cnh)} />
-                <DetailRow label="Data de nascimento" value={isoToDisplay(ev.attendee_birth_date)} />
-                <DetailRow label="Observações" value={ev.description} />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px 24px', margin: '4px 0 16px' }}>
+                <DetailItem label="Data" value={fmtDateLong(ev.event_date)} capitalize />
+                <DetailItem label="Horário" value={horario} />
+                <DetailItem label="Serviço" value={ev.service_name} />
+                <DetailItem label="Consultor" value={ev.responsible_name} />
+                <DetailItem label="Cliente" value={ev.client_name} />
+                <DetailItem label="Telefone" value={ev.attendee_phone} />
+                <DetailItem label="CPF" value={ev.attendee_cpf ? maskCpf(ev.attendee_cpf) : ''} />
+                <DetailItem label="CNH" value={ev.attendee_cnh} />
+                <DetailItem label="Primeira habilitação" value={isoToDisplay(ev.attendee_first_cnh)} />
+                <DetailItem label="Data de nascimento" value={isoToDisplay(ev.attendee_birth_date)} />
+                <DetailItem label="Valor" value={fmtMoney(ev.value)} />
+                <DetailItem label="Forma de pagamento" value={ev.payment_method} />
               </div>
 
-              <div className="form-actions" style={{ justifyContent: 'space-between' }}>
-                <button type="button" className="btn-icon danger" title="Excluir" onClick={() => { setViewEvent(null); removeEvent(ev); }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-                </button>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {!cancelled && <button type="button" className="btn-secondary" onClick={() => { setViewEvent(null); cancelEvent(ev); }}>Cancelar agendamento</button>}
-                  <button type="button" className="btn-primary" onClick={() => { setViewEvent(null); openEdit(ev); }}>Editar</button>
+              {ev.description && (
+                <div style={{ marginBottom: 18 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 5 }}>Observações</div>
+                  <div style={{ background: '#f8fafc', border: '1px solid #eef2f7', borderRadius: 8, padding: '10px 12px', fontSize: 13.5, lineHeight: 1.55, color: '#334155', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                    {ev.description}
+                  </div>
                 </div>
+              )}
+
+              <div className="form-actions" style={{ justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', borderTop: '1px solid #f1f5f9', paddingTop: 14 }}>
+                <button type="button" className="btn-secondary" style={{ color: '#dc2626', borderColor: '#fecaca' }} onClick={() => { setViewEvent(null); removeEvent(ev); }}>
+                  Excluir
+                </button>
+                {!cancelled && (
+                  <button type="button" className="btn-secondary" style={{ color: '#f59e0b', borderColor: '#fde68a' }} onClick={() => { setViewEvent(null); cancelEvent(ev); }}>
+                    Cancelar agendamento
+                  </button>
+                )}
+                <button type="button" className="btn-primary" onClick={() => { setViewEvent(null); openEdit(ev); }}>Editar</button>
               </div>
             </div>
           </div>
         );
       })()}
 
-      {/* ── Modal criar/editar evento ── */}
-      {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal-content" style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 style={{ fontSize: 18, fontWeight: 700, color: '#0f172a' }}>{editing ? 'Editar Evento' : 'Novo Evento'}</h2>
-              <button type="button" onClick={() => setShowModal(false)} className="btn-close">✕</button>
-            </div>
-            {modalError && <div className="error-message" style={{ margin: '0 0 12px', fontSize: 13 }}>{modalError}</div>}
-            <form onSubmit={save} className="modal-form">
-              <div className="form-group"><label>Nome da pessoa agendada *</label><input value={form.title} onChange={set('title')} placeholder="Nome de quem será atendido" required /></div>
-              <div className="form-row">
-                <div className="form-group"><label>Data *</label><input type="date" value={form.event_date} onChange={set('event_date')} required /></div>
-                <div className="form-group"><label>Tipo</label>
-                  <select value={form.type} onChange={set('type')}>
-                    {(TYPES.some(t => t.value === form.type) ? TYPES : [...TYPES, typeInfo(form.type)]).map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group"><label>Início</label><input type="time" value={form.start_time} onChange={set('start_time')} /></div>
-                <div className="form-group"><label>Fim</label><input type="time" value={form.end_time} onChange={set('end_time')} /></div>
-              </div>
-              <div className="form-row">
-                <div className="form-group"><label>Serviço</label>
-                  <select value={form.service_type_id} onChange={set('service_type_id')}>
-                    <option value="">— Nenhum —</option>
-                    {serviceTypes.map(s => <option key={s.id} value={String(s.id)}>{s.label || s.name || s.code}</option>)}
-                  </select>
-                </div>
-                <div className="form-group"><label>Consultor</label>
-                  <select value={form.responsible_user_id || ''} onChange={set('responsible_user_id')}>
-                    <option value="">— Selecione —</option>
-                    {consultants.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group"><label>CPF</label><input value={form.attendee_cpf} onChange={e => setForm(p => ({ ...p, attendee_cpf: maskCpf(e.target.value) }))} inputMode="numeric" placeholder="000.000.000-00" /></div>
-                <div className="form-group"><label>CNH</label><input value={form.attendee_cnh} onChange={e => setForm(p => ({ ...p, attendee_cnh: onlyDigits(e.target.value).slice(0, 11) }))} inputMode="numeric" placeholder="11 dígitos" /></div>
-              </div>
-              <div className="form-row">
-                <div className="form-group"><label>Primeira habilitação</label><DateBRInput value={form.attendee_first_cnh} onChange={(v) => setForm(p => ({ ...p, attendee_first_cnh: v }))} /></div>
-                <div className="form-group"><label>Data de nascimento</label><DateBRInput value={form.attendee_birth_date} onChange={(v) => setForm(p => ({ ...p, attendee_birth_date: v }))} /></div>
-              </div>
-              <div className="form-row">
-                <div className="form-group"><label>Cliente (opcional)</label>
-                  <select value={form.client_id} onChange={set('client_id')}>
-                    <option value="">— Nenhum —</option>
-                    {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
-                <div className="form-group"><label>Status</label>
-                  <select value={form.status} onChange={set('status')}>
-                    <option value="agendado">Agendado</option><option value="concluido">Concluído</option><option value="cancelado">Cancelado</option>
-                  </select>
-                </div>
-              </div>
-              <div className="form-group"><label>Observações</label><textarea rows={2} value={form.description} onChange={set('description')} placeholder="Detalhes do evento..." /></div>
-              <p style={{ fontSize: 11, color: '#94a3b8', margin: '0 0 8px' }}>Sem horário = dia inteiro. Consultor padrão: você (usuário logado).</p>
-              <div className="form-actions">
-                <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>Cancelar</button>
-                <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Salvando...' : editing ? 'Salvar' : 'Criar evento'}</button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* ── Modal criar/editar evento (compartilhado) ── */}
+      {formModal && (
+        <EventFormModal
+          event={formModal.event}
+          initialData={formModal.initialData}
+          onClose={() => setFormModal(null)}
+          onSaved={() => { setFormModal(null); load(); }}
+        />
       )}
 
       {/* ── Modal de bloqueio (dia inteiro / manhã / tarde / personalizado) ── */}
@@ -661,13 +498,13 @@ function EventRow({ ev, onView, onEdit, onCancel, onRemove }) {
   );
 }
 
-// Linha label/valor do modal de visualização — oculta quando não há valor
-function DetailRow({ label, value }) {
+// Bloco label/valor do modal de visualização — oculto quando não há valor
+function DetailItem({ label, value, capitalize }) {
   if (value == null || value === '') return null;
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, padding: '9px 0', borderBottom: '1px solid #f1f5f9', fontSize: 13.5 }}>
-      <span style={{ color: '#94a3b8', fontWeight: 600, flexShrink: 0 }}>{label}</span>
-      <span style={{ color: '#1e293b', fontWeight: 600, textAlign: 'right', wordBreak: 'break-word' }}>{value}</span>
+    <div style={{ minWidth: 0 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 3 }}>{label}</div>
+      <div style={{ fontSize: 14, fontWeight: 600, color: '#1e293b', wordBreak: 'break-word', textTransform: capitalize ? 'capitalize' : 'none' }}>{value}</div>
     </div>
   );
 }

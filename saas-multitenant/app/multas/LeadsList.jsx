@@ -6,6 +6,7 @@ import {
   updateMultasLeadStatus, deleteMultasLead
 } from '../lib/multasLeadsAPI';
 import { requestDeletion } from '../lib/approvalsAPI';
+import EventFormModal from './components/EventFormModal';
 
 const ALL_STATUSES = [
   { value: 'entrada',           label: 'Entrada',              color: '#64748b' },
@@ -69,6 +70,7 @@ export default function LeadsList() {
   const [showDeleteModal, setShowDeleteModal] = useState(null); // lead obj
   const [deleteReason,    setDeleteReason]    = useState('');
   const [deletingSolicitar, setDeletingSolicitar] = useState(false);
+  const [schedulingLead,  setSchedulingLead]  = useState(null); // lead → agendamento (modal da Agenda pré-preenchido)
 
   const currentUser = typeof window !== 'undefined'
     ? JSON.parse(localStorage.getItem('user') || '{}') : {};
@@ -221,6 +223,13 @@ export default function LeadsList() {
                   <td style={{ color:'#475569', fontSize:13 }}>{lead.created_by_name||'—'}</td>
                   <td>
                     <div className="actions-cell">
+                      <button onClick={()=>setSchedulingLead(lead)} className="btn-icon" title="Agendar" style={{ color:'#751518' }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="3" y="4" width="18" height="18" rx="2"/>
+                          <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                          <line x1="12" y1="14" x2="12" y2="18"/><line x1="10" y1="16" x2="14" y2="16"/>
+                        </svg>
+                      </button>
                       <button onClick={()=>openEdit(lead)} className="btn-icon" title="Editar">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -341,6 +350,26 @@ export default function LeadsList() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Modal Lead → Agendamento (form compartilhado da Agenda, pré-preenchido; não altera o lead) */}
+      {schedulingLead && (
+        <EventFormModal
+          heading="Novo Agendamento"
+          initialData={{
+            title: schedulingLead.name || '',
+            attendee_cpf: schedulingLead.cpf || '',
+            attendee_cnh: schedulingLead.cnh || '',
+            attendee_first_cnh: schedulingLead.first_license_date || '',
+            attendee_birth_date: schedulingLead.birth_date || '',
+            attendee_phone: schedulingLead.phone || '',
+          }}
+          onClose={() => setSchedulingLead(null)}
+          onSaved={() => {
+            setSchedulingLead(null);
+            alert('Agendamento criado! Confira na aba Agenda.');
+          }}
+        />
       )}
     </div>
   );

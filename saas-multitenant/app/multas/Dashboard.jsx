@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getContractDashboard, getStageClients, getDeferred } from '../lib/contractsAPI';
 import { getClients } from '../lib/clientsAPI';
-import { getUpcomingEvents } from '../lib/calendarAPI';
+import { getUpcomingEvents, getEventsRange } from '../lib/calendarAPI';
 import { getKanbanLeads } from '../lib/multasLeadsAPI';
 import UserHome from './UserHome';
 
@@ -51,6 +51,9 @@ const formatDate = (v) => {
   if (y && m && d) return `${d}/${m}/${y}`;
   return new Date(v).toLocaleDateString('pt-BR');
 };
+
+// Data local em YYYY-MM-DD (timezone-safe) — usada no range do card de Agendamentos.
+const isoLocal = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
 
 // ─── Sub-componentes ──────────────────────────────────────────────────────────
 
@@ -258,6 +261,7 @@ export default function MultasDashboard() {
   const [stageData,  setStageData]  = useState({});
   const [deferidosList, setDeferidosList] = useState([]);
   const [upcomingEvents, setUpcomingEvents] = useState([]);
+  const [weekEvents, setWeekEvents] = useState([]);   // eventos de hoje a +6 dias (card Agendamentos)
   const [kanbanActive, setKanbanActive] = useState(0);
   const [loading,    setLoading]    = useState(true);
   const [expandedStage, setExpandedStage] = useState(null); // 'defesa' | 'inst1' | 'inst2' | 'deferido'
@@ -271,12 +275,15 @@ export default function MultasDashboard() {
   const load = async () => {
     try {
       setLoading(true);
-      const [clientsData, contractsData, stageGroupsData, deferredData, eventsData, kanbanData] = await Promise.all([
+      const today = new Date();
+      const plus6 = new Date(); plus6.setDate(today.getDate() + 6);
+      const [clientsData, contractsData, stageGroupsData, deferredData, eventsData, weekData, kanbanData] = await Promise.all([
         getClients().catch(() => []),
         getContractDashboard().catch(() => ({})),
         getStageClients().catch(() => ({})),
         getDeferred().catch(() => []),
         getUpcomingEvents(5).catch(() => []),
+        getEventsRange(isoLocal(today), isoLocal(plus6)).catch(() => []),
         getKanbanLeads().catch(() => []),
       ]);
       setClients(clientsData || []);
@@ -285,6 +292,7 @@ export default function MultasDashboard() {
       setStageData(stageGroupsData || {});
       setDeferidosList(deferredData || []);
       setUpcomingEvents(eventsData || []);
+      setWeekEvents(weekData || []);
       setKanbanActive((kanbanData || []).length);
     } catch (err) {
       console.error(err);
@@ -311,6 +319,8 @@ export default function MultasDashboard() {
   const totalContracts = parseInt(contracts?.total_contracts) || 0;
   const deferidos      = parseInt(contracts?.deferred_count ?? contracts?.completed_contracts) || 0;
   const venceEm7       = alerts.find(a => a.type === 'warning')?.count || 0;
+  // Agendamentos válidos dos próximos 7 dias (exclui cancelados e bloqueios de agenda)
+  const agendamentos7  = weekEvents.filter(e => e.status !== 'cancelado' && e.type !== 'bloqueio').length;
 
   // Contagens por etapa
   const countStage = (keys) => keys.reduce((acc, k) => acc + (stageData[k]?.length || 0), 0);
@@ -353,6 +363,14 @@ export default function MultasDashboard() {
             color="#f59e0b"
             onClick={() => router.push('/dashboard?module=multas&tab=calendario')}
             icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
+          />
+          <SummaryCard
+            title="AGENDAMENTOS"
+            value={agendamentos7}
+            subtitle="próximos 7 dias"
+            color="#0891b2"
+            onClick={() => router.push('/dashboard?module=multas&tab=eventos')}
+            icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>}
           />
         </div>
 

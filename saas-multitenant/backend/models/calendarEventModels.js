@@ -19,6 +19,23 @@ const digitsOrNull = (v) => {
   const d = String(v).replace(/\D/g, '');
   return d || null;
 };
+// Valor monetário: aceita number ou string ("150,00", "1.500,00", "150.00"); inválido → null.
+const toMoneyOrNull = (v) => {
+  if (v === '' || v == null) return null;
+  let n;
+  if (typeof v === 'number') { n = v; }
+  else {
+    let s = String(v).trim().replace(/[^\d.,-]/g, '');
+    if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.'); // pt-BR: ponto = milhar
+    n = parseFloat(s);
+  }
+  return Number.isFinite(n) ? n : null;
+};
+// Telefone: livre, truncado no limite da coluna VARCHAR(20).
+const phoneOrNull = (v) => {
+  const s = toStrOrNull(v);
+  return s ? String(s).trim().slice(0, 20) || null : null;
+};
 
 // scope: 'upcoming' (>= hoje) | 'past' (< hoje) | 'all'; ou range from/to
 const list = async (tenant_id, { scope = 'upcoming', from, to } = {}) => {
@@ -80,6 +97,7 @@ const create = async ({
   tenant_id, title, description, event_date, start_time, end_time,
   type, client_id, fine_id, responsible_user_id, status, created_by,
   service_type_id, attendee_cpf, attendee_cnh, attendee_first_cnh, attendee_birth_date,
+  value, payment_method, attendee_phone,
 }) => {
   if (!tenant_id)   throw new Error('tenant_id é obrigatório');
   if (!title)       throw new Error('title é obrigatório');
@@ -88,8 +106,9 @@ const create = async ({
     `INSERT INTO calendar_events
        (tenant_id, title, description, event_date, start_time, end_time, type,
         client_id, fine_id, responsible_user_id, status, created_by,
-        service_type_id, attendee_cpf, attendee_cnh, attendee_first_cnh, attendee_birth_date)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
+        service_type_id, attendee_cpf, attendee_cnh, attendee_first_cnh, attendee_birth_date,
+        value, payment_method, attendee_phone)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) RETURNING *`,
     [
       tenant_id, title, toStrOrNull(description), event_date,
       toTimeOrNull(start_time), toTimeOrNull(end_time), type || 'outro',
@@ -97,6 +116,7 @@ const create = async ({
       status || 'agendado', toUuidOrNull(created_by),
       toIntOrNull(service_type_id), digitsOrNull(attendee_cpf), digitsOrNull(attendee_cnh),
       toDateOrNull(attendee_first_cnh), toDateOrNull(attendee_birth_date),
+      toMoneyOrNull(value), toStrOrNull(payment_method), phoneOrNull(attendee_phone),
     ]
   );
   return r.rows[0];
@@ -106,20 +126,23 @@ const update = async (id, {
   title, description, event_date, start_time, end_time,
   type, client_id, fine_id, responsible_user_id, status,
   service_type_id, attendee_cpf, attendee_cnh, attendee_first_cnh, attendee_birth_date,
+  value, payment_method, attendee_phone,
 }, tenant_id) => {
   const r = await pool.query(
     `UPDATE calendar_events
         SET title=$1, description=$2, event_date=$3, start_time=$4, end_time=$5, type=$6,
             client_id=$7, fine_id=$8, responsible_user_id=$9, status=$10,
             service_type_id=$11, attendee_cpf=$12, attendee_cnh=$13,
-            attendee_first_cnh=$14, attendee_birth_date=$15, updated_at=NOW()
-      WHERE id=$16 AND tenant_id=$17 RETURNING *`,
+            attendee_first_cnh=$14, attendee_birth_date=$15,
+            value=$16, payment_method=$17, attendee_phone=$18, updated_at=NOW()
+      WHERE id=$19 AND tenant_id=$20 RETURNING *`,
     [
       title, toStrOrNull(description), event_date, toTimeOrNull(start_time), toTimeOrNull(end_time),
       type || 'outro', toUuidOrNull(client_id), toUuidOrNull(fine_id), toUuidOrNull(responsible_user_id),
       status || 'agendado',
       toIntOrNull(service_type_id), digitsOrNull(attendee_cpf), digitsOrNull(attendee_cnh),
       toDateOrNull(attendee_first_cnh), toDateOrNull(attendee_birth_date),
+      toMoneyOrNull(value), toStrOrNull(payment_method), phoneOrNull(attendee_phone),
       id, tenant_id,
     ]
   );

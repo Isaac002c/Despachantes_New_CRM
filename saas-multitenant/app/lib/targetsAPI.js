@@ -59,3 +59,20 @@ export const deleteActivity = async (id) =>
   (await apiRequest(`/api/targets/activities/${id}`, {
     method: 'DELETE',
   })).data;
+
+// Default export agregando os métodos nomeados (consumido como `import targetsAPI from ...`)
+export default {
+  getTargets,
+  getTargetsByYear,
+  createTarget,
+  getAllActivities,
+  getOverdueActivities,
+  getUpcomingActivities,
+  getInactiveLeads,
+  getActivityStats,
+  getLeadActivities,
+  createActivity,
+  completeActivity,
+  updateActivity,
+  deleteActivity,
+};

@@ -5182,7 +5182,8 @@ html, body {
 
 .md-summary-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* auto-fit acomoda o 4º card (Agendamentos) e quebra sozinho em telas menores */
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 16px;
 }
 
