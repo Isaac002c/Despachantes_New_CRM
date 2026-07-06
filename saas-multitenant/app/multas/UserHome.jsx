@@ -2,29 +2,6 @@
 
 import { useRouter } from 'next/navigation';
 
-function CRResourcesLogo({ size = 80 }) {
-  return (
-    <svg width={size} height={size * 0.82} viewBox="0 0 100 82" fill="none">
-      {/* Scales of justice */}
-      <line x1="70" y1="4" x2="70" y2="32" stroke="#751518" strokeWidth="2.5" strokeLinecap="round"/>
-      <line x1="58" y1="10" x2="82" y2="10" stroke="#751518" strokeWidth="2.5" strokeLinecap="round"/>
-      <path d="M56 10 Q52 18 56 22 Q60 26 64 22 Q68 18 64 10" fill="none" stroke="#751518" strokeWidth="2"/>
-      <path d="M76 10 Q72 18 76 22 Q80 26 84 22 Q88 18 84 10" fill="none" stroke="#751518" strokeWidth="2"/>
-      <line x1="64" y1="32" x2="76" y2="32" stroke="#751518" strokeWidth="2" strokeLinecap="round"/>
-      {/* Car silhouette */}
-      <path d="M4 56 L7 46 Q10 40 16 39 L22 36 Q25 34 36 34 L60 36 Q64 37 66 40 L72 47 L76 56 Q76 61 72 61 L10 61 Q4 61 4 56Z"
-            fill="#751518"/>
-      <circle cx="18" cy="61" r="7" fill="#050708"/>
-      <circle cx="60" cy="61" r="7" fill="#050708"/>
-      <circle cx="18" cy="61" r="3.5" fill="#751518" opacity="0.6"/>
-      <circle cx="60" cy="61" r="3.5" fill="#751518" opacity="0.6"/>
-      <path d="M20 39 L27 48 L58 48 L65 39 Z" fill="white" opacity="0.2"/>
-      {/* Ground line */}
-      <line x1="0" y1="72" x2="100" y2="72" stroke="#d3cfc3" strokeWidth="1.5"/>
-    </svg>
-  );
-}
-
 const quickActionsConsultor = [
   {
     label: 'Leads',
@@ -75,7 +52,8 @@ export default function UserHome({ user }) {
       {/* Hero */}
       <div className="user-home-hero">
         <div className="user-home-logos">
-          <CRResourcesLogo size={72} />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logos/cr-consultor-logo.png" alt="CR Recursos" className="user-home-logo-img" />
         </div>
         <div className="user-home-welcome">
           <p className="user-home-greeting">{greeting}</p>

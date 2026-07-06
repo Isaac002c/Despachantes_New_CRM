@@ -4145,11 +4145,17 @@ html, body {
    (.sidebar-brand), reusando o layout padrão .sidebar-logo.
    Escopo restrito a .tenant-cr-recursos: não afeta outros tenants.
    ============================================ */
+/* Logo é um lockup completo (símbolo + nome em branco): exibida sozinha,
+   centralizada e grande, preenchendo a largura útil do topo do sidebar. */
+.sidebar.tenant-cr-recursos .sidebar-logo--cr {
+  justify-content: center;
+  padding: 22px 16px 18px;
+}
 .sidebar.tenant-cr-recursos .cr-recursos-logo-img {
   display: block;
-  height: 40px;
-  width: auto;
-  max-width: 100%;
+  width: 100%;
+  max-width: 184px;
+  height: auto;
   object-fit: contain;
   flex-shrink: 0;
 }
@@ -6197,6 +6203,15 @@ html, body {
 
 .user-home-logos {
   flex-shrink: 0;
+}
+
+/* Logo real do CR Recursos na hero do consultor (símbolo vazado sobre card branco) */
+.user-home-logo-img {
+  display: block;
+  width: 152px;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
 }
 
 .user-home-welcome {

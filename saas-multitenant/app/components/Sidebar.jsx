@@ -192,9 +192,10 @@ function TenantLogo({ collapsed, tenant }) {
   const brandColor = tenant?.brand_color || defaults.brand_color || '#751518';
   const initial = name.charAt(0).toUpperCase();
 
-  // CR Recursos: logo vazada/transparente (só o símbolo, sem texto embutido).
-  // Exibida limpa — sem card/box/moldura/fundo — com o nome no texto ao lado.
-  // Afeta somente este tenant.
+  // CR Recursos: a logo é um lockup completo (símbolo + nome "CR RECURSOS /
+  // ASSESSORIA DE TRÂNSITO" em branco, vazado). Por isso exibimos SOMENTE a logo,
+  // centralizada, sem o texto HTML ao lado (evita duplicar a marca) e sem
+  // card/box/fundo. Afeta somente este tenant.
   const isCrRecursos = slug === 'cr-recursos';
   if (isCrRecursos && logoUrl) {
     return (
@@ -210,12 +211,6 @@ function TenantLogo({ collapsed, tenant }) {
           }}
         />
         <div className="cr-recursos-logo-fallback">{initial}</div>
-        {!collapsed && (
-          <div className="sidebar-brand">
-            <span className="sidebar-brand-name">{name}</span>
-            <span className="sidebar-brand-sub">{tagline}</span>
-          </div>
-        )}
       </div>
     );
   }
