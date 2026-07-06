@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { getEvents, getEventsRange, createEvent, updateEvent, setEventStatus, deleteEvent } from '../lib/calendarAPI';
-import { maskCpf } from '../lib/processConstants';
 import EventFormModal, { typeInfo, fmtTime, isoToDisplay } from './components/EventFormModal';
 
 // Turnos padrão (editáveis) — não há config de expediente no sistema.
@@ -353,40 +352,44 @@ export default function CalendarioEventos() {
                 <button type="button" onClick={() => setViewEvent(null)} className="btn-close">✕</button>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px 24px', margin: '4px 0 16px' }}>
-                <DetailItem label="Data" value={fmtDateLong(ev.event_date)} capitalize />
-                <DetailItem label="Horário" value={horario} />
-                <DetailItem label="Serviço" value={ev.service_name} />
-                <DetailItem label="Consultor" value={ev.responsible_name} />
-                <DetailItem label="Cliente" value={ev.client_name} />
-                <DetailItem label="Telefone" value={ev.attendee_phone} />
-                <DetailItem label="CPF" value={ev.attendee_cpf ? maskCpf(ev.attendee_cpf) : ''} />
-                <DetailItem label="CNH" value={ev.attendee_cnh} />
-                <DetailItem label="Primeira habilitação" value={isoToDisplay(ev.attendee_first_cnh)} />
-                <DetailItem label="Data de nascimento" value={isoToDisplay(ev.attendee_birth_date)} />
-                <DetailItem label="Valor" value={fmtMoney(ev.value)} />
-                <DetailItem label="Forma de pagamento" value={ev.payment_method} />
-              </div>
-
-              {ev.description && (
-                <div style={{ marginBottom: 18 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 5 }}>Observações</div>
-                  <div style={{ background: '#f8fafc', border: '1px solid #eef2f7', borderRadius: 8, padding: '10px 12px', fontSize: 13.5, lineHeight: 1.55, color: '#334155', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                    {ev.description}
-                  </div>
+              {/* Corpo com padding compacto e consistente (o header já tem o seu próprio) */}
+              <div style={{ padding: '16px 24px 18px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px 24px', marginBottom: 14 }}>
+                  <DetailItem label="Data" value={fmtDateLong(ev.event_date)} capitalize />
+                  <DetailItem label="Horário" value={horario} />
+                  <DetailItem label="Serviço" value={ev.service_name} />
+                  <DetailItem label="Consultor" value={ev.responsible_name} />
+                  <DetailItem label="Cliente" value={ev.client_name} />
+                  <DetailItem label="Telefone" value={ev.attendee_phone} />
+                  {/* CPF exibido limpo (só dígitos), igual ao restante do sistema — sem máscara */}
+                  <DetailItem label="CPF" value={String(ev.attendee_cpf || '').replace(/\D/g, '')} />
+                  <DetailItem label="CNH" value={ev.attendee_cnh} />
+                  <DetailItem label="Primeira habilitação" value={isoToDisplay(ev.attendee_first_cnh)} />
+                  <DetailItem label="Data de nascimento" value={isoToDisplay(ev.attendee_birth_date)} />
+                  <DetailItem label="Valor" value={fmtMoney(ev.value)} />
+                  <DetailItem label="Forma de pagamento" value={ev.payment_method} />
                 </div>
-              )}
 
-              <div className="form-actions" style={{ justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', borderTop: '1px solid #f1f5f9', paddingTop: 14 }}>
-                <button type="button" className="btn-secondary" style={{ color: '#dc2626', borderColor: '#fecaca' }} onClick={() => { setViewEvent(null); removeEvent(ev); }}>
-                  Excluir
-                </button>
-                {!cancelled && (
-                  <button type="button" className="btn-secondary" style={{ color: '#f59e0b', borderColor: '#fde68a' }} onClick={() => { setViewEvent(null); cancelEvent(ev); }}>
-                    Cancelar agendamento
-                  </button>
+                {ev.description && (
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>Observações</div>
+                    <div style={{ background: '#f8fafc', border: '1px solid #eef2f7', borderRadius: 8, padding: '9px 12px', fontSize: 13, lineHeight: 1.5, color: '#334155', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                      {ev.description}
+                    </div>
+                  </div>
                 )}
-                <button type="button" className="btn-primary" onClick={() => { setViewEvent(null); openEdit(ev); }}>Editar</button>
+
+                <div className="form-actions" style={{ justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', borderTop: '1px solid #f1f5f9', marginTop: 0, paddingTop: 14 }}>
+                  <button type="button" className="btn-secondary" style={{ color: '#dc2626', borderColor: '#fecaca' }} onClick={() => { setViewEvent(null); removeEvent(ev); }}>
+                    Excluir
+                  </button>
+                  {!cancelled && (
+                    <button type="button" className="btn-secondary" style={{ color: '#f59e0b', borderColor: '#fde68a' }} onClick={() => { setViewEvent(null); cancelEvent(ev); }}>
+                      Cancelar agendamento
+                    </button>
+                  )}
+                  <button type="button" className="btn-primary" onClick={() => { setViewEvent(null); openEdit(ev); }}>Editar</button>
+                </div>
               </div>
             </div>
           </div>
