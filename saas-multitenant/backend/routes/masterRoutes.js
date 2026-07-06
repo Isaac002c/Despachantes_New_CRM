@@ -73,6 +73,48 @@ router.patch('/tenants/:id/status', async (req, res) => {
   } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });
 
+// PUT /api/master/tenants/:id — editar dados da empresa
+router.put('/tenants/:id', async (req, res) => {
+  try {
+    const current = await model.getTenantById(req.params.id);
+    if (!current) return res.status(404).json({ success: false, error: 'Tenant não encontrado' });
+    if (current.slug === model.MASTER_SLUG) return res.status(403).json({ success: false, error: 'A empresa master não pode ser editada' });
+
+    let { name, slug, email, status } = req.body;
+    if (name !== undefined && !String(name).trim()) return res.status(400).json({ success: false, error: 'Nome não pode ficar vazio' });
+    if (slug !== undefined) {
+      slug = slugify(slug);
+      if (!slug)                        return res.status(400).json({ success: false, error: 'Slug inválido' });
+      if (slug === model.MASTER_SLUG)   return res.status(400).json({ success: false, error: 'Slug reservado' });
+      if (await model.slugExistsExcept(slug, req.params.id)) return res.status(400).json({ success: false, error: 'Slug já existe' });
+    }
+    if (status !== undefined) status = status === 'inativo' ? 'inativo' : 'ativo';
+
+    const updated = await model.updateTenant(req.params.id, {
+      name: name !== undefined ? String(name).trim() : undefined,
+      slug,
+      email: email !== undefined ? (email || null) : current.email,
+      status,
+    });
+    res.json({ success: true, data: updated });
+  } catch (e) {
+    if (e.code === '23505') return res.status(400).json({ success: false, error: 'Slug ou e-mail duplicado' });
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// DELETE /api/master/tenants/:id — apagar empresa (somente se INATIVA). Irreversível (CASCADE).
+router.delete('/tenants/:id', async (req, res) => {
+  try {
+    const current = await model.getTenantById(req.params.id);
+    if (!current) return res.status(404).json({ success: false, error: 'Tenant não encontrado' });
+    if (current.slug === model.MASTER_SLUG) return res.status(403).json({ success: false, error: 'A empresa master não pode ser apagada' });
+    if (current.status !== 'inativo')       return res.status(400).json({ success: false, error: 'Inative a empresa antes de apagá-la.' });
+    await model.deleteTenant(req.params.id);
+    res.json({ success: true, data: { id: req.params.id } });
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
 // POST /api/master/tenants/:id/users — criar usuário (admin) para um tenant
 router.post('/tenants/:id/users', async (req, res) => {
   try {
@@ -100,6 +142,48 @@ router.post('/users/:id/reset-password', async (req, res) => {
     await model.resetUserPassword(req.params.id, temp);
     res.json({ success: true, data: { email: target.email, temp_password: temp } });
   } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+// PUT /api/master/users/:id — editar usuário (nome, e-mail, papel). Nunca senha.
+router.put('/users/:id', async (req, res) => {
+  try {
+    const target = await model.getUserById(req.params.id);
+    if (!target) return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
+    if (target.role === 'super_admin') return res.status(403).json({ success: false, error: 'Operação não permitida' });
+
+    let { name, email, role } = req.body;
+    if (email !== undefined) {
+      if (!isEmail(email)) return res.status(400).json({ success: false, error: 'E-mail inválido' });
+      if (await model.emailInTenantExcept(email, target.tenant_id, req.params.id))
+        return res.status(400).json({ success: false, error: 'E-mail já existe neste tenant' });
+    }
+    if (role !== undefined) role = role === 'admin' ? 'admin' : 'seller';
+
+    const updated = await model.updateUser(req.params.id, {
+      name: name !== undefined ? String(name).trim() : undefined,
+      email,
+      role,
+    });
+    res.json({ success: true, data: updated });
+  } catch (e) {
+    if (e.code === '23505') return res.status(400).json({ success: false, error: 'E-mail duplicado' });
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// DELETE /api/master/users/:id — apagar usuário, preservando os registros criados por ele.
+router.delete('/users/:id', async (req, res) => {
+  try {
+    const target = await model.getUserById(req.params.id);
+    if (!target) return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
+    if (target.role === 'super_admin') return res.status(403).json({ success: false, error: 'Operação não permitida' });
+    const deleted = await model.deleteUser(req.params.id);
+    if (!deleted) return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
+    res.json({ success: true, data: { id: req.params.id } });
+  } catch (e) {
+    if (e.code === '23503') return res.status(400).json({ success: false, error: 'Usuário possui vínculos que impedem a exclusão.' });
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 module.exports = router;

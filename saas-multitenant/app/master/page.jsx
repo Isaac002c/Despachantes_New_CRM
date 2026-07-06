@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getOverview, getTenants, getTenantUsers, createTenant, setTenantStatus, createTenantUser, resetUserPassword } from '../lib/masterAPI';
+import { getOverview, getTenants, getTenantUsers, createTenant, setTenantStatus, updateTenant, deleteTenant, createTenantUser, resetUserPassword, updateTenantUser, deleteTenantUser } from '../lib/masterAPI';
 
 const fmtDate = (v) => { if (!v) return '—'; const [y, m, d] = String(v).substring(0, 10).split('-'); return (y && m && d) ? `${d}/${m}/${y}` : '—'; };
 const fmtDateTime = (v) => { if (!v) return 'nunca'; const dt = new Date(v); return isNaN(dt) ? '—' : dt.toLocaleString('pt-BR'); };
@@ -38,6 +38,23 @@ export default function MasterPanel() {
   const [resetInfo, setResetInfo]     = useState(null);  // { email, temp_password }
   const [addAdmin, setAddAdmin]       = useState({ name: '', email: '', password: '' });
   const [addingAdmin, setAddingAdmin] = useState(false);
+
+  // Editar empresa
+  const [editTenant, setEditTenant] = useState(null);   // tenant em edição
+  const [editForm, setEditForm]     = useState({ name: '', slug: '', email: '', status: 'ativo' });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError]   = useState(null);
+
+  // Apagar empresa (exige digitar o nome)
+  const [delTenant, setDelTenant]   = useState(null);   // tenant a apagar
+  const [delText, setDelText]       = useState('');
+  const [deleting, setDeleting]     = useState(false);
+
+  // Editar usuário (dentro do drawer)
+  const [editUser, setEditUser]     = useState(null);   // usuário em edição
+  const [editUserForm, setEditUserForm] = useState({ name: '', email: '', role: 'seller' });
+  const [savingUser, setSavingUser] = useState(false);
+  const [editUserError, setEditUserError] = useState(null);
 
   useEffect(() => {
     let u = {};
@@ -101,6 +118,50 @@ export default function MasterPanel() {
     } catch (e) { setError(e.message); } finally { setAddingAdmin(false); }
   };
 
+  const refreshDrawerUsers = async () => {
+    if (!usersDrawer?.tenant?.id) return;
+    try { const d = await getTenantUsers(usersDrawer.tenant.id); setUsersDrawer(d); } catch (e) { setError(e.message); }
+  };
+
+  // Editar empresa
+  const openEditTenant = (t) => { setEditError(null); setEditForm({ name: t.name || '', slug: t.slug || '', email: t.email || '', status: t.status || 'ativo' }); setEditTenant(t); };
+  const submitEditTenant = async (e) => {
+    e.preventDefault(); setEditError(null);
+    if (!editForm.name.trim()) { setEditError('Nome da empresa é obrigatório.'); return; }
+    try {
+      setSavingEdit(true);
+      await updateTenant(editTenant.id, { name: editForm.name.trim(), slug: editForm.slug || slugify(editForm.name), email: editForm.email || null, status: editForm.status });
+      setEditTenant(null); load();
+    } catch (err) { setEditError(err.message); } finally { setSavingEdit(false); }
+  };
+
+  // Apagar empresa (somente inativa; exige digitar o nome exato)
+  const openDelTenant = (t) => { setDelText(''); setDelTenant(t); };
+  const confirmDelTenant = async () => {
+    if (!delTenant || delText.trim() !== delTenant.name) return;
+    try {
+      setDeleting(true);
+      await deleteTenant(delTenant.id);
+      setDelTenant(null); setDelText(''); load();
+    } catch (e) { setError(e.message); setDelTenant(null); } finally { setDeleting(false); }
+  };
+
+  // Editar / apagar usuário (dentro do drawer)
+  const openEditUser = (u) => { setEditUserError(null); setEditUserForm({ name: u.name || '', email: u.email || '', role: u.role === 'admin' ? 'admin' : 'seller' }); setEditUser(u); };
+  const submitEditUser = async (e) => {
+    e.preventDefault(); setEditUserError(null);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editUserForm.email)) { setEditUserError('E-mail inválido.'); return; }
+    try {
+      setSavingUser(true);
+      await updateTenantUser(editUser.id, { name: editUserForm.name.trim(), email: editUserForm.email, role: editUserForm.role });
+      setEditUser(null); await refreshDrawerUsers();
+    } catch (err) { setEditUserError(err.message); } finally { setSavingUser(false); }
+  };
+  const doDeleteUser = async (u) => {
+    if (!confirm(`Apagar o usuário ${u.email}?\n\nOs registros criados por ele serão mantidos (sem autor). Esta ação não pode ser desfeita.`)) return;
+    try { await deleteTenantUser(u.id); await refreshDrawerUsers(); } catch (e) { setError(e.message); }
+  };
+
   if (!authorized) return null;
 
   return (
@@ -155,7 +216,7 @@ export default function MasterPanel() {
             <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden' }}>
               <table className="data-table" style={{ border: 'none', borderRadius: 0 }}>
                 <thead>
-                  <tr><th>Empresa</th><th>Slug</th><th>Status</th><th>Usuários</th><th>Criada em</th><th>Último acesso</th><th style={{ width: 150 }}>Ações</th></tr>
+                  <tr><th>Empresa</th><th>Slug</th><th>Status</th><th>Usuários</th><th>Criada em</th><th>Último acesso</th><th style={{ width: 260 }}>Ações</th></tr>
                 </thead>
                 <tbody>
                   {tenants.length === 0 ? (
@@ -169,10 +230,20 @@ export default function MasterPanel() {
                       <td style={{ color: '#475569' }}>{fmtDate(t.created_at)}</td>
                       <td style={{ color: '#64748b', fontSize: 13 }}>{fmtDateTime(t.last_login)}</td>
                       <td>
-                        <div style={{ display: 'flex', gap: 6 }}>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                           <button className="btn-secondary" style={{ padding: '5px 10px', fontSize: 12 }} onClick={() => openUsers(t)}>Usuários</button>
+                          <button className="btn-secondary" style={{ padding: '5px 10px', fontSize: 12 }} onClick={() => openEditTenant(t)}>Editar</button>
                           <button className="btn-secondary" style={{ padding: '5px 10px', fontSize: 12, color: t.status === 'ativo' ? '#b45309' : '#15803d', borderColor: t.status === 'ativo' ? '#fde68a' : '#bbf7d0' }} onClick={() => toggleStatus(t)}>
                             {t.status === 'ativo' ? 'Inativar' : 'Ativar'}
+                          </button>
+                          <button
+                            className="btn-secondary"
+                            disabled={t.status !== 'inativo'}
+                            title={t.status !== 'inativo' ? 'Inative a empresa antes de apagar' : 'Apagar empresa permanentemente'}
+                            style={{ padding: '5px 10px', fontSize: 12, color: t.status === 'inativo' ? '#b91c1c' : '#cbd5e1', borderColor: t.status === 'inativo' ? '#fecaca' : '#e2e8f0', cursor: t.status === 'inativo' ? 'pointer' : 'not-allowed' }}
+                            onClick={() => openDelTenant(t)}
+                          >
+                            Apagar
                           </button>
                         </div>
                       </td>
@@ -243,7 +314,7 @@ export default function MasterPanel() {
 
             <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden', marginBottom: 14 }}>
               <table className="data-table" style={{ border: 'none', borderRadius: 0 }}>
-                <thead><tr><th>Nome</th><th>E-mail</th><th>Papel</th><th>Último acesso</th><th style={{ width: 90 }}>Ações</th></tr></thead>
+                <thead><tr><th>Nome</th><th>E-mail</th><th>Papel</th><th>Último acesso</th><th style={{ width: 210 }}>Ações</th></tr></thead>
                 <tbody>
                   {(usersDrawer.users || []).length === 0 ? (
                     <tr><td colSpan="5"><div style={{ padding: 18, textAlign: 'center', color: '#94a3b8' }}>Sem usuários.</div></td></tr>
@@ -253,7 +324,13 @@ export default function MasterPanel() {
                       <td style={{ color: '#475569' }}>{u.email}</td>
                       <td><span className="client-status-badge fechado">{u.role}</span></td>
                       <td style={{ color: '#64748b', fontSize: 12 }}>{fmtDateTime(u.last_login)}</td>
-                      <td><button className="btn-secondary" style={{ padding: '4px 8px', fontSize: 11 }} onClick={() => doReset(u)}>Resetar senha</button></td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                          <button className="btn-secondary" style={{ padding: '4px 8px', fontSize: 11 }} onClick={() => openEditUser(u)}>Editar</button>
+                          <button className="btn-secondary" style={{ padding: '4px 8px', fontSize: 11 }} onClick={() => doReset(u)}>Resetar senha</button>
+                          <button className="btn-secondary" style={{ padding: '4px 8px', fontSize: 11, color: '#b91c1c', borderColor: '#fecaca' }} onClick={() => doDeleteUser(u)}>Apagar</button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -271,6 +348,98 @@ export default function MasterPanel() {
                 <div className="form-group" style={{ display: 'flex', alignItems: 'flex-end' }}>
                   <button type="submit" className="btn-primary" disabled={addingAdmin} style={{ width: '100%' }}>{addingAdmin ? 'Adicionando...' : 'Adicionar admin'}</button>
                 </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: editar empresa */}
+      {editTenant && (
+        <div className="modal-overlay" onClick={() => setEditTenant(null)}>
+          <div className="modal-content" style={{ maxWidth: 520 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: '#0f172a' }}>Editar Empresa</h2>
+              <button type="button" onClick={() => setEditTenant(null)} className="btn-close">✕</button>
+            </div>
+            {editError && <div className="error-message" style={{ margin: '0 0 12px', fontSize: 13 }}>{editError}</div>}
+            <form onSubmit={submitEditTenant} className="modal-form">
+              <div className="form-row">
+                <div className="form-group"><label>Nome da empresa *</label><input value={editForm.name} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} required /></div>
+                <div className="form-group"><label>Slug</label><input value={editForm.slug} onChange={e => setEditForm(p => ({ ...p, slug: slugify(e.target.value) }))} placeholder="identificador-da-empresa" /></div>
+              </div>
+              <div className="form-row">
+                <div className="form-group"><label>E-mail da empresa</label><input type="email" value={editForm.email} onChange={e => setEditForm(p => ({ ...p, email: e.target.value }))} placeholder="contato@empresa.com" /></div>
+                <div className="form-group"><label>Status</label>
+                  <select value={editForm.status} onChange={e => setEditForm(p => ({ ...p, status: e.target.value }))}>
+                    <option value="ativo">Ativa</option><option value="inativo">Inativa</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ fontSize: 12, color: '#94a3b8', marginTop: -2, marginBottom: 8 }}>Alterar o slug muda a identidade da empresa — faça apenas se souber o efeito.</div>
+              <div className="form-actions">
+                <button type="button" className="btn-secondary" onClick={() => setEditTenant(null)}>Cancelar</button>
+                <button type="submit" className="btn-primary" disabled={savingEdit}>{savingEdit ? 'Salvando...' : 'Salvar alterações'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: apagar empresa (confirmação por digitação do nome) */}
+      {delTenant && (
+        <div className="modal-overlay" onClick={() => !deleting && setDelTenant(null)}>
+          <div className="modal-content" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: '#b91c1c' }}>Apagar empresa</h2>
+              <button type="button" onClick={() => !deleting && setDelTenant(null)} className="btn-close">✕</button>
+            </div>
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: 12, marginBottom: 14, fontSize: 13, color: '#991b1b' }}>
+              Esta ação é <strong>permanente e irreversível</strong>. Todos os dados de <strong>{delTenant.name}</strong> (usuários, clientes, multas, leads, documentos) serão apagados.
+            </div>
+            <div className="form-group">
+              <label style={{ fontSize: 13 }}>Para confirmar, digite o nome exato da empresa: <strong>{delTenant.name}</strong></label>
+              <input value={delText} onChange={e => setDelText(e.target.value)} placeholder={delTenant.name} autoFocus />
+            </div>
+            <div className="form-actions">
+              <button type="button" className="btn-secondary" onClick={() => setDelTenant(null)} disabled={deleting}>Cancelar</button>
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={deleting || delText.trim() !== delTenant.name}
+                style={{ background: '#b91c1c', borderColor: '#b91c1c', opacity: (deleting || delText.trim() !== delTenant.name) ? 0.5 : 1 }}
+                onClick={confirmDelTenant}
+              >
+                {deleting ? 'Apagando...' : 'Apagar definitivamente'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: editar usuário */}
+      {editUser && (
+        <div className="modal-overlay" onClick={() => setEditUser(null)}>
+          <div className="modal-content" style={{ maxWidth: 460 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: '#0f172a' }}>Editar Usuário</h2>
+              <button type="button" onClick={() => setEditUser(null)} className="btn-close">✕</button>
+            </div>
+            {editUserError && <div className="error-message" style={{ margin: '0 0 12px', fontSize: 13 }}>{editUserError}</div>}
+            <form onSubmit={submitEditUser} className="modal-form">
+              <div className="form-group"><label>Nome</label><input value={editUserForm.name} onChange={e => setEditUserForm(p => ({ ...p, name: e.target.value }))} /></div>
+              <div className="form-row">
+                <div className="form-group"><label>E-mail *</label><input type="email" value={editUserForm.email} onChange={e => setEditUserForm(p => ({ ...p, email: e.target.value }))} required /></div>
+                <div className="form-group"><label>Papel</label>
+                  <select value={editUserForm.role} onChange={e => setEditUserForm(p => ({ ...p, role: e.target.value }))}>
+                    <option value="admin">admin</option><option value="seller">seller</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ fontSize: 12, color: '#94a3b8', marginTop: -4, marginBottom: 8 }}>Para alterar a senha, use “Resetar senha”.</div>
+              <div className="form-actions">
+                <button type="button" className="btn-secondary" onClick={() => setEditUser(null)}>Cancelar</button>
+                <button type="submit" className="btn-primary" disabled={savingUser}>{savingUser ? 'Salvando...' : 'Salvar'}</button>
               </div>
             </form>
           </div>

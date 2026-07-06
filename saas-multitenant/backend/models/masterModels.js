@@ -55,8 +55,12 @@ const getTenantUsers = async (tenant_id) => {
 };
 
 const slugExists  = async (slug) => (await pool.query('SELECT 1 FROM tenants WHERE slug = $1', [slug])).rowCount > 0;
+const slugExistsExcept = async (slug, id) =>
+  (await pool.query('SELECT 1 FROM tenants WHERE slug = $1 AND id <> $2', [slug, id])).rowCount > 0;
 const emailInTenant = async (email, tenant_id) =>
   (await pool.query('SELECT 1 FROM users WHERE email = $1 AND tenant_id = $2', [email, tenant_id])).rowCount > 0;
+const emailInTenantExcept = async (email, tenant_id, userId) =>
+  (await pool.query('SELECT 1 FROM users WHERE email = $1 AND tenant_id = $2 AND id <> $3', [email, tenant_id, userId])).rowCount > 0;
 
 // Cria tenant + usuário admin (transação). Senha sempre com bcrypt.
 const createTenantWithAdmin = async ({ name, slug, email, adminName, adminEmail, adminPassword, status }) => {
@@ -93,6 +97,29 @@ const setTenantStatus = async (id, status) => {
   return r.rows[0];
 };
 
+// Edita dados da empresa. name/slug/status: null mantém o valor atual (COALESCE);
+// email: sempre gravado ($4), permitindo limpar.
+const updateTenant = async (id, { name, slug, email, status }) => {
+  const r = await pool.query(
+    `UPDATE tenants SET
+        name   = COALESCE($2, name),
+        slug   = COALESCE($3, slug),
+        email  = $4,
+        status = COALESCE($5, status)
+      WHERE id = $1
+      RETURNING id, name, slug, COALESCE(status,'ativo') AS status, email, created_at`,
+    [id, name ?? null, slug ?? null, email ?? null, status ?? null]
+  );
+  return r.rows[0];
+};
+
+// Exclui a empresa. As FKs `tenant_id ... ON DELETE CASCADE` removem em cascata
+// todos os dados filhos (users, clients, fines, leads, documents, etc.).
+const deleteTenant = async (id) => {
+  const r = await pool.query('DELETE FROM tenants WHERE id = $1 RETURNING id', [id]);
+  return r.rows[0];
+};
+
 const createTenantUser = async ({ tenant_id, name, email, password, role }) => {
   const hash = await bcrypt.hash(password, 10);
   const r = await pool.query(
@@ -116,8 +143,63 @@ const resetUserPassword = async (userId, newPassword) => {
   return r.rows[0];
 };
 
+// Edita dados do usuário (nunca mexe em senha — isso é o resetUserPassword).
+// Nunca atinge super_admin. Campos null mantêm o valor atual (COALESCE).
+const updateUser = async (id, { name, email, role }) => {
+  const r = await pool.query(
+    `UPDATE users SET
+        name  = COALESCE($2, name),
+        email = COALESCE($3, email),
+        role  = COALESCE($4, role)
+      WHERE id = $1 AND role IS DISTINCT FROM 'super_admin'
+      RETURNING id, name, email, role, tenant_id`,
+    [id, name ?? null, email ?? null, role ?? null]
+  );
+  return r.rows[0];
+};
+
+// Exclui o usuário preservando os registros que ele criou: desvincula a autoria
+// (SET NULL) em toda coluna nullable que referencie users(id) — descobertas via
+// information_schema, então cobre documents.uploaded_by, approval_requests.*, etc.
+// e qualquer FK futura. Nunca atinge super_admin.
+const deleteUser = async (id) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const fks = await client.query(
+      `SELECT tc.table_name, kcu.column_name
+         FROM information_schema.table_constraints tc
+         JOIN information_schema.key_column_usage kcu
+           ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
+         JOIN information_schema.constraint_column_usage ccu
+           ON tc.constraint_name = ccu.constraint_name AND tc.table_schema = ccu.table_schema
+         JOIN information_schema.columns c
+           ON c.table_schema = tc.table_schema AND c.table_name = tc.table_name AND c.column_name = kcu.column_name
+        WHERE tc.constraint_type = 'FOREIGN KEY'
+          AND ccu.table_name = 'users' AND ccu.column_name = 'id'
+          AND tc.table_schema = 'public'
+          AND c.is_nullable = 'YES'`
+    );
+    for (const { table_name, column_name } of fks.rows) {
+      await client.query(`UPDATE "${table_name}" SET "${column_name}" = NULL WHERE "${column_name}" = $1`, [id]);
+    }
+    const r = await client.query(
+      `DELETE FROM users WHERE id = $1 AND role IS DISTINCT FROM 'super_admin' RETURNING id, email`,
+      [id]
+    );
+    await client.query('COMMIT');
+    return r.rows[0];
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   MASTER_SLUG, getOverview, listTenants, getTenantById, getTenantUsers,
-  slugExists, emailInTenant, createTenantWithAdmin, setTenantStatus,
-  createTenantUser, getUserById, resetUserPassword,
+  slugExists, slugExistsExcept, emailInTenant, emailInTenantExcept,
+  createTenantWithAdmin, setTenantStatus, updateTenant, deleteTenant,
+  createTenantUser, getUserById, resetUserPassword, updateUser, deleteUser,
 };
