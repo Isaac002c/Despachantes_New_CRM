@@ -192,28 +192,28 @@ function TenantLogo({ collapsed, tenant }) {
   const brandColor = tenant?.brand_color || defaults.brand_color || '#751518';
   const initial = name.charAt(0).toUpperCase();
 
-  // CR Recursos: a arte da logo já traz "CR RECURSOS" + "ASSESSORIA DE TRÂNSITO"
-  // embutidos. Exibimos a arte grande num card claro (para não sumir no sidebar
-  // escuro) e não duplicamos o texto ao lado. Afeta somente este tenant.
+  // CR Recursos: logo vazada/transparente (só o símbolo, sem texto embutido).
+  // Exibida limpa — sem card/box/moldura/fundo — com o nome no texto ao lado.
+  // Afeta somente este tenant.
   const isCrRecursos = slug === 'cr-recursos';
   if (isCrRecursos && logoUrl) {
     return (
       <div className={`sidebar-logo sidebar-logo--cr${collapsed ? ' is-collapsed' : ''}`}>
-        {collapsed ? (
-          <div className="cr-recursos-logo-badge">CR</div>
-        ) : (
-          <div className="cr-recursos-logo-card">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={logoUrl}
-              alt={name}
-              className="cr-recursos-logo-img"
-              onError={e => {
-                e.currentTarget.style.display = 'none';
-                e.currentTarget.nextElementSibling.style.display = 'flex';
-              }}
-            />
-            <div className="cr-recursos-logo-fallback">{name}</div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={logoUrl}
+          alt={name}
+          className="cr-recursos-logo-img"
+          onError={e => {
+            e.currentTarget.style.display = 'none';
+            e.currentTarget.nextElementSibling.style.display = 'flex';
+          }}
+        />
+        <div className="cr-recursos-logo-fallback">{initial}</div>
+        {!collapsed && (
+          <div className="sidebar-brand">
+            <span className="sidebar-brand-name">{name}</span>
+            <span className="sidebar-brand-sub">{tagline}</span>
           </div>
         )}
       </div>

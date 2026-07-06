@@ -4139,64 +4139,43 @@ html, body {
 }
 
 /* ============================================
-   CR Recursos — logo em destaque no sidebar
-   A arte já contém "CR RECURSOS" + "ASSESSORIA DE TRÂNSITO",
-   então mostramos a logo grande num card claro e não duplicamos texto.
+   CR Recursos — logo vazada (transparente) no sidebar
+   A arte é só o símbolo (sem texto embutido), exibida limpa: sem card,
+   sem box, sem fundo bege e sem moldura. O nome fica no texto ao lado
+   (.sidebar-brand), reusando o layout padrão .sidebar-logo.
    Escopo restrito a .tenant-cr-recursos: não afeta outros tenants.
    ============================================ */
-.sidebar.tenant-cr-recursos .sidebar-logo--cr {
-  padding: 18px 14px 16px;
-  justify-content: center;
-}
-
-.sidebar.tenant-cr-recursos .cr-recursos-logo-card {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  max-width: 100%;
-  padding: 11px 16px;
-  border-radius: 12px;
-  background: linear-gradient(150deg, #f4f0e8 0%, #dcd5c6 100%);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.55);
-}
-
 .sidebar.tenant-cr-recursos .cr-recursos-logo-img {
   display: block;
-  height: 90px;
+  height: 40px;
   width: auto;
   max-width: 100%;
   object-fit: contain;
+  flex-shrink: 0;
 }
 
+/* Fallback (só aparece se a imagem falhar): monograma discreto */
 .sidebar.tenant-cr-recursos .cr-recursos-logo-fallback {
   display: none;
   align-items: center;
-  font-size: 15px;
-  font-weight: 800;
-  color: var(--cr-wine);
-  letter-spacing: 0.3px;
-}
-
-/* Estado colapsado: monograma discreto no lugar da arte cheia */
-.sidebar.tenant-cr-recursos .sidebar-logo--cr.is-collapsed {
-  padding: 14px 8px;
-}
-
-.sidebar.tenant-cr-recursos .cr-recursos-logo-badge {
+  justify-content: center;
   width: 40px;
   height: 40px;
-  margin: 0 auto;
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--cr-wine);
   color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 800;
-  letter-spacing: -0.5px;
-  box-shadow: 0 2px 8px rgba(117, 21, 24, 0.4);
+  flex-shrink: 0;
+}
+
+/* Estado colapsado: só o símbolo, centralizado e limitado à largura do menu */
+.sidebar.tenant-cr-recursos .sidebar-logo--cr.is-collapsed {
+  justify-content: center;
+}
+.sidebar.tenant-cr-recursos .sidebar-logo--cr.is-collapsed .cr-recursos-logo-img {
+  height: auto;
+  max-width: 44px;
 }
 
 /* Module switcher */
@@ -5243,9 +5222,13 @@ html, body {
 
 .md-summary-grid {
   display: grid;
-  /* auto-fit acomoda o 4º card (Agendamentos) e quebra sozinho em telas menores */
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  /* Sempre 4 cards na linha; se não couber na largura, o container rola na
+     horizontal (nunca deixa o 4º card — Agendamentos — cair sozinho). */
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
   gap: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
 }
 
 .md-metric-card--clickable {
@@ -5353,14 +5336,13 @@ html, body {
 
 .md-stages-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* Sempre 4 cards na linha; rola na horizontal quando não couber (mantém
+     Defesa Prévia, 1ª e 2ª Instância e Deferidos sempre na mesma linha). */
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
   gap: 14px;
-}
-@media (max-width: 1024px) {
-  .md-stages-row { grid-template-columns: repeat(2, 1fr); }
-}
-@media (max-width: 600px) {
-  .md-stages-row { grid-template-columns: 1fr; }
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
 }
 
 .md-stage-card {
