@@ -4154,7 +4154,7 @@ html, body {
 .sidebar.tenant-cr-recursos .cr-recursos-logo-img {
   display: block;
   width: 100%;
-  max-width: 184px;
+  max-width: 150px;
   height: auto;
   object-fit: contain;
   flex-shrink: 0;
