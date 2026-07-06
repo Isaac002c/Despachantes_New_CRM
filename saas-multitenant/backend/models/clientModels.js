@@ -126,6 +126,74 @@ const deleteClient = async (id, tenant_id) => {
   return result.rows[0];
 };
 
+// ============================================
+// Cria (uma única vez) o cliente correspondente a um lead "fechado".
+// Idempotente e sem duplicar dados:
+//   1) já existe cliente vinculado a este lead (lead_id)?  -> não cria
+//   2) já existe cliente com o mesmo CPF neste tenant?     -> vincula o existente, não cria
+//   3) senão, cria o cliente herdando os dados do lead.
+// Respeita o tenant (todas as queries filtram por tenant_id). Requer a coluna
+// clients.lead_id (migration add_client_lead_link.sql).
+// ============================================
+const ensureClientFromLead = async (lead, tenant_id) => {
+  if (!tenant_id) throw new Error('tenant_id é obrigatório');
+  if (!lead || !lead.id) throw new Error('lead inválido');
+
+  // 1) idempotência por vínculo direto
+  const byLead = await pool.query(
+    'SELECT id FROM clients WHERE lead_id = $1 AND tenant_id = $2 LIMIT 1',
+    [lead.id, tenant_id]
+  );
+  if (byLead.rows[0]) return { created: false, reason: 'already_linked', id: byLead.rows[0].id };
+
+  // 2) dedupe por CPF (mesma pessoa já cadastrada) — compara só dígitos
+  const cpf = String(lead.cpf || '').replace(/\D/g, '') || null;
+  if (cpf) {
+    const byCpf = await pool.query(
+      `SELECT id FROM clients
+         WHERE tenant_id = $1
+           AND regexp_replace(COALESCE(cpf, ''), '\\D', '', 'g') = $2
+         LIMIT 1`,
+      [tenant_id, cpf]
+    );
+    if (byCpf.rows[0]) {
+      // vincula o cliente já existente a este lead (sem sobrescrever outro vínculo)
+      await pool.query(
+        'UPDATE clients SET lead_id = $1 WHERE id = $2 AND tenant_id = $3 AND lead_id IS NULL',
+        [lead.id, byCpf.rows[0].id, tenant_id]
+      );
+      return { created: false, reason: 'existing_cpf', id: byCpf.rows[0].id };
+    }
+  }
+
+  // 3) cria o cliente herdando os dados disponíveis do lead
+  const notesParts = [];
+  if (lead.source)          notesParts.push(`Origem: ${lead.source}`);
+  if (lead.created_by_name) notesParts.push(`Consultor: ${lead.created_by_name}`);
+  if (lead.notes)           notesParts.push(String(lead.notes));
+  const notes = notesParts.join('\n') || null;
+
+  const result = await pool.query(
+    `INSERT INTO clients
+       (tenant_id, name, cpf, cnh, first_cnh, birth_date, phone, notes, status, lead_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+     RETURNING id`,
+    [
+      tenant_id,
+      lead.name,
+      cpf,
+      toStrOrNull(lead.cnh),
+      toDateOrNull(lead.first_license_date),
+      toDateOrNull(lead.birth_date),
+      toStrOrNull(lead.phone),
+      notes,
+      'negociacao',
+      lead.id,
+    ]
+  );
+  return { created: true, id: result.rows[0].id };
+};
+
 module.exports = {
   createClient,
   getAllClients,
@@ -134,5 +202,6 @@ module.exports = {
   searchClients,
   countClients,
   updateClient,
-  deleteClient
+  deleteClient,
+  ensureClientFromLead,
 };

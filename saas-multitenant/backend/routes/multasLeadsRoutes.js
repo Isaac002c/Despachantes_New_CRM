@@ -1,6 +1,7 @@
 const express = require('express');
 const router  = express.Router();
 const model   = require('../models/multasLeadModels');
+const clientModel = require('../models/clientModels');
 const pool    = require('../config/db');
 
 // Helper: busca nome do usuário logado
@@ -10,6 +11,19 @@ async function getUserName(userId) {
     const res = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
     return res.rows[0]?.name || null;
   } catch { return null; }
+}
+
+// Quando um lead vira "fechado", cria (uma vez) o cliente correspondente.
+// Best-effort: uma falha aqui NUNCA quebra a atualização do lead (o move do
+// Kanban continua funcionando). Como é idempotente, um novo save de "fechado"
+// tenta de novo. Respeita o tenant.
+async function maybeCreateClientFromLead(lead, tenantId) {
+  if (!lead || lead.status !== 'fechado') return;
+  try {
+    await clientModel.ensureClientFromLead(lead, tenantId);
+  } catch (e) {
+    console.error('[multas-leads] Falha ao criar cliente do lead fechado:', e.message);
+  }
 }
 
 // GET /api/multas-leads — lista todos
@@ -89,6 +103,7 @@ router.put('/:id', async (req, res) => {
       req.tenantId
     );
     if (!item) return res.status(404).json({ success: false, error: 'Lead não encontrado' });
+    await maybeCreateClientFromLead(item, req.tenantId);
     res.json({ success: true, data: item });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -102,6 +117,7 @@ router.patch('/:id/status', async (req, res) => {
     if (!status) return res.status(400).json({ success: false, error: 'status é obrigatório' });
     const item = await model.updateMultasLeadStatus(req.params.id, status, req.tenantId);
     if (!item) return res.status(404).json({ success: false, error: 'Lead não encontrado' });
+    await maybeCreateClientFromLead(item, req.tenantId);
     res.json({ success: true, data: item });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
