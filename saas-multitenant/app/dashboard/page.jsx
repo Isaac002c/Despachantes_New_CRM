@@ -138,6 +138,15 @@ function DashboardContent() {
     setLoading(false);
   }, [router]);
 
+  // CR Recursos: consultor (não-admin) não acessa "Prazos" (tab calendario) nem por URL direta.
+  // Redireciona para a home do módulo. Não afeta admin nem outros tenants.
+  useEffect(() => {
+    if (!user || !tenant) return;
+    if ((tenant.slug || '') === 'cr-recursos' && user.role !== 'admin' && activeTab === 'calendario') {
+      router.replace('/dashboard?module=multas');
+    }
+  }, [user, tenant, activeTab, router]);
+
   const handleLogout = async () => {
     try {
       await fetch('/auth/logout', { method: 'POST', credentials: 'include' });

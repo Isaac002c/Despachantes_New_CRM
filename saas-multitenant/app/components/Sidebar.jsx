@@ -263,9 +263,12 @@ export default function Sidebar({ currentModule, currentTab, onNavigate, collaps
   const tenantSlug = tenant?.slug || deriveSlug(tenant?.name) || 'default';
 
   // Filtra itens visíveis para a role atual
-  const visibleItems = config.items.filter(item =>
-    !item.roles || item.roles.includes(userRole)
-  );
+  const visibleItems = config.items.filter(item => {
+    if (item.roles && !item.roles.includes(userRole)) return false;
+    // CR Recursos: consultor (não-admin) não vê "Prazos" (tab calendario). Só este tenant.
+    if (tenantSlug === 'cr-recursos' && userRole !== 'admin' && item.tab === 'calendario') return false;
+    return true;
+  });
 
   const classes = [
     'sidebar',

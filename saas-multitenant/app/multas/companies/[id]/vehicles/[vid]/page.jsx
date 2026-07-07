@@ -252,7 +252,7 @@ export default function VehicleDetail() {
           <>
             <table className="data-table" style={{ border: 'none', borderRadius: 0 }}>
               <thead>
-                <tr><th>Nº Auto/Processo</th><th>Placa</th><th>Órgão</th><th>Prazo</th><th>Andamento</th><th>Serviço</th><th style={{ width: 160 }}>Ações</th></tr>
+                <tr><th>Nº Auto/Processo</th><th>Placa</th><th>Órgão</th><th>Prazo</th><th>Andamento</th><th>Observações</th><th style={{ width: 160 }}>Ações</th></tr>
               </thead>
               <tbody>
                 {fines.map(f => (
@@ -266,7 +266,9 @@ export default function VehicleDetail() {
                       <td>{f.organ || '—'}</td>
                       <td style={{ fontSize: 13, ...getPrazoStyle(f.due_date) }}>{formatDate(f.due_date)}</td>
                       <td><span className="service-status-badge" style={getStatusStyle(f.status)}>{getStatusLabel(f.status)}</span></td>
-                      <td style={{ color: '#64748b', fontSize: 13 }}>{f.service_label || f.service_name || '—'}</td>
+                      <td style={{ color: '#64748b', fontSize: 13, maxWidth: 240 }} title={f.notes || ''}>
+                        <span style={{ display: 'block', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.notes ? f.notes : '—'}</span>
+                      </td>
                       <td>
                         <div className="actions-cell">
                           <button onClick={() => setExpandedId(expandedId === f.id ? null : f.id)} className="btn-icon" title="Protocolos">

@@ -158,8 +158,9 @@ const ensureClientFromLead = async (lead, tenant_id) => {
     );
     if (byCpf.rows[0]) {
       // vincula o cliente já existente a este lead (sem sobrescrever outro vínculo)
+      // e o promove a "fechado" (o lead foi fechado -> é a mesma pessoa/cliente fechado)
       await pool.query(
-        'UPDATE clients SET lead_id = $1 WHERE id = $2 AND tenant_id = $3 AND lead_id IS NULL',
+        "UPDATE clients SET lead_id = $1, status = 'fechado' WHERE id = $2 AND tenant_id = $3 AND lead_id IS NULL",
         [lead.id, byCpf.rows[0].id, tenant_id]
       );
       return { created: false, reason: 'existing_cpf', id: byCpf.rows[0].id };
@@ -187,7 +188,7 @@ const ensureClientFromLead = async (lead, tenant_id) => {
       toDateOrNull(lead.birth_date),
       toStrOrNull(lead.phone),
       notes,
-      'negociacao',
+      'fechado',
       lead.id,
     ]
   );
