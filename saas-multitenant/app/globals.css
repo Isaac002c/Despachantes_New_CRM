@@ -4149,7 +4149,7 @@ html, body {
    centralizada e grande, preenchendo a largura útil do topo do sidebar. */
 .sidebar.tenant-cr-recursos .sidebar-logo--cr {
   justify-content: center;
-  padding: 22px 16px 18px;
+  padding: 14px 16px 12px;
 }
 .sidebar.tenant-cr-recursos .cr-recursos-logo-img {
   display: block;
@@ -4231,7 +4231,11 @@ html, body {
   gap: 2px;
   padding: 8px 10px 0;
   overflow-y: auto;
-  flex: 1;
+  /* flex:1 + min-height:0 = nav é a única região que cresce/encolhe; permite que o
+     overflow-y role só a navegação (footer fixo) em telas baixas, sem cortar itens. */
+  flex: 1 1 0;
+  min-height: 0;
+  overscroll-behavior: contain;
 }
 
 .sidebar-nav::-webkit-scrollbar { width: 4px; }
@@ -4254,7 +4258,7 @@ html, body {
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 10px 12px;
+  padding: 8px 12px;
   border: none;
   border-radius: 8px;
   background: transparent;

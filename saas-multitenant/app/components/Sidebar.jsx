@@ -317,8 +317,6 @@ export default function Sidebar({ currentModule, currentTab, onNavigate, collaps
         })}
       </nav>
 
-      <div style={{ flex: 1 }} />
-
       {currentModule !== 'settings' && (
         <>
           <div className="sidebar-divider" />
