@@ -604,8 +604,8 @@ export default function ClientDetail() {
             {[
               { label: 'CPF',          value: formatCPF(client.cpf) },
               { label: 'CNH',          value: client.cnh || '—' },
-              { label: '1ª CNH',       value: formatDate(client.first_cnh) },
               { label: 'Nascimento',   value: formatDate(client.birth_date) },
+              { label: '1ª CNH',       value: formatDate(client.first_cnh) },
               { label: 'Telefone',     value: client.phone || '—' },
               { label: 'E-mail',       value: client.email || '—' },
             ].map(({ label, value }) => (

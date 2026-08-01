@@ -147,6 +147,35 @@ export default function EventFormModal({ event, initialData, heading, onClose, o
 
   const set = (field) => (e) => setForm(p => ({ ...p, [field]: e.target.value }));
 
+  const selectClient = (e) => {
+    const clientId = e.target.value;
+
+    // Limpar a seleção mantém os dados visíveis para não apagar uma edição manual.
+    if (!clientId) {
+      setForm(p => ({ ...p, client_id: '' }));
+      return;
+    }
+
+    const client = clients.find(c => String(c.id) === String(clientId));
+    if (!client) {
+      setForm(p => ({ ...p, client_id: clientId }));
+      return;
+    }
+
+    // Os dados de identificação passam a corresponder ao cliente selecionado.
+    // Observações e demais dados próprios do evento não são sobrescritos.
+    setForm(p => ({
+      ...p,
+      client_id: clientId,
+      title: client.name || '',
+      attendee_cpf: maskCpf(client.cpf || ''),
+      attendee_cnh: client.cnh ? onlyDigits(String(client.cnh)).slice(0, 11) : '',
+      attendee_birth_date: isoToDisplay(client.birth_date),
+      attendee_first_cnh: isoToDisplay(client.first_cnh),
+      attendee_phone: client.phone || '',
+    }));
+  };
+
   const save = async (e) => {
     e.preventDefault(); setError(null);
     if (!form.title.trim()) { setError('Nome da pessoa agendada é obrigatório.'); return; }
@@ -217,8 +246,8 @@ export default function EventFormModal({ event, initialData, heading, onClose, o
             <div className="form-group"><label>CNH</label><input value={form.attendee_cnh} onChange={e => setForm(p => ({ ...p, attendee_cnh: onlyDigits(e.target.value).slice(0, 11) }))} inputMode="numeric" placeholder="11 dígitos" /></div>
           </div>
           <div className="form-row">
-            <div className="form-group"><label>Primeira habilitação</label><DateBRInput value={form.attendee_first_cnh} onChange={(v) => setForm(p => ({ ...p, attendee_first_cnh: v }))} /></div>
             <div className="form-group"><label>Data de nascimento</label><DateBRInput value={form.attendee_birth_date} onChange={(v) => setForm(p => ({ ...p, attendee_birth_date: v }))} /></div>
+            <div className="form-group"><label>Primeira habilitação</label><DateBRInput value={form.attendee_first_cnh} onChange={(v) => setForm(p => ({ ...p, attendee_first_cnh: v }))} /></div>
           </div>
           <div className="form-row">
             <div className="form-group"><label>Telefone</label><input value={form.attendee_phone} onChange={set('attendee_phone')} maxLength={20} placeholder="(21) 99999-0000" /></div>
@@ -234,7 +263,7 @@ export default function EventFormModal({ event, initialData, heading, onClose, o
           </div>
           <div className="form-row">
             <div className="form-group"><label>Cliente (opcional)</label>
-              <select value={form.client_id} onChange={set('client_id')}>
+              <select value={form.client_id} onChange={selectClient}>
                 <option value="">— Nenhum —</option>
                 {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>

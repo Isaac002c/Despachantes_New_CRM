@@ -364,8 +364,8 @@ export default function CalendarioEventos() {
                   {/* CPF exibido limpo (só dígitos), igual ao restante do sistema — sem máscara */}
                   <DetailItem label="CPF" value={String(ev.attendee_cpf || '').replace(/\D/g, '')} />
                   <DetailItem label="CNH" value={ev.attendee_cnh} />
-                  <DetailItem label="Primeira habilitação" value={isoToDisplay(ev.attendee_first_cnh)} />
                   <DetailItem label="Data de nascimento" value={isoToDisplay(ev.attendee_birth_date)} />
+                  <DetailItem label="Primeira habilitação" value={isoToDisplay(ev.attendee_first_cnh)} />
                   <DetailItem label="Valor" value={fmtMoney(ev.value)} />
                   <DetailItem label="Forma de pagamento" value={ev.payment_method} />
                 </div>

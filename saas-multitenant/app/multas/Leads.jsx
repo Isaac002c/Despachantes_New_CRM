@@ -394,8 +394,8 @@ export default function MultasLeads() {
               {[
                 { label: 'CPF',         value: selectedLead.cpf || '—' },
                 { label: 'CNH',         value: selectedLead.cnh || '—' },
-                { label: '1ª Hab.',     value: formatDate(selectedLead.first_license_date) },
                 { label: 'Nascimento',  value: formatDate(selectedLead.birth_date) },
+                { label: '1ª Hab.',     value: formatDate(selectedLead.first_license_date) },
                 { label: 'Telefone',    value: selectedLead.phone || '—' },
                 { label: 'Origem',      value: selectedLead.source || '—' },
                 { label: 'Criado por',  value: selectedLead.created_by_name || '—' },
@@ -501,20 +501,20 @@ export default function MultasLeads() {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>1ª Habilitação</label>
-                  <input
-                    type="text"
-                    value={formData.first_license_date}
-                    onChange={e => setFormData(prev => ({ ...prev, first_license_date: normalizeDate(e.target.value) }))}
-                    placeholder="ex: 01/01/2000 ou 01012000"
-                  />
-                </div>
-                <div className="form-group">
                   <label>Nascimento</label>
                   <input
                     type="text"
                     value={formData.birth_date}
                     onChange={e => setFormData(prev => ({ ...prev, birth_date: normalizeDate(e.target.value) }))}
+                    placeholder="ex: 01/01/2000 ou 01012000"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>1ª Habilitação</label>
+                  <input
+                    type="text"
+                    value={formData.first_license_date}
+                    onChange={e => setFormData(prev => ({ ...prev, first_license_date: normalizeDate(e.target.value) }))}
                     placeholder="ex: 01/01/2000 ou 01012000"
                   />
                 </div>

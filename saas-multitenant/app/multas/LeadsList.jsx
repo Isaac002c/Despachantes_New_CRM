@@ -284,11 +284,11 @@ export default function LeadsList() {
                 </div>
               </div>
               <div className="form-row">
-                <div className="form-group"><label>1ª Habilitação</label>
-                  <input type="text" value={formData.first_license_date} onChange={e=>setFormData(p=>({...p,first_license_date:normalizeDate(e.target.value)}))} placeholder="ex: 01/01/2000" />
-                </div>
                 <div className="form-group"><label>Nascimento</label>
                   <input type="text" value={formData.birth_date} onChange={e=>setFormData(p=>({...p,birth_date:normalizeDate(e.target.value)}))} placeholder="ex: 01/01/2000" />
+                </div>
+                <div className="form-group"><label>1ª Habilitação</label>
+                  <input type="text" value={formData.first_license_date} onChange={e=>setFormData(p=>({...p,first_license_date:normalizeDate(e.target.value)}))} placeholder="ex: 01/01/2000" />
                 </div>
               </div>
               <div className="form-row">
